@@ -1,0 +1,115 @@
+-- Pixel Blade OP Script (Minimal) - Pablo
+-- God Mode + Kill Aura + Auto Farm + Speed
+-- F1: Toggle OP | F2: Aura Burst
+-- Teste no Xeno - Pablo Henricke 2026-01-21
+
+local player = game.Players.LocalPlayer
+local rs = game:GetService("ReplicatedStorage")
+local uis = game:GetService("UserInputService")
+local run = game:GetService("RunService")
+
+local opEnabled = true
+local stats = {kills = 0, rooms = 0}
+
+local function log(msg)
+    print("[Pablo OP] " .. msg)
+end
+
+local function applyGod()
+    local char = player.Character
+    if not char then return end
+    local hum = char:FindFirstChild("Humanoid")
+    if hum then
+        hum.MaxHealth = math.huge
+        hum.Health = math.huge
+        hum.WalkSpeed = 80
+        hum.JumpPower = 100
+    end
+end
+
+local function killAura()
+    local char = player.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    local root = char.HumanoidRootPart
+
+    for _, obj in pairs(workspace:GetChildren()) do
+        local hum = obj:FindFirstChild("Humanoid")
+        local hrp = obj:FindFirstChild("HumanoidRootPart") or obj.PrimaryPart
+        if hum and hrp and hum.Health > 0 and obj ~= char then
+            local dist = (root.Position - hrp.Position).Magnitude
+            if dist <= 45 then
+                rs.remotes.useAbility:FireServer("tornado")
+                rs.remotes.abilityHit:FireServer(hum, math.huge, {stun = {dur = 999}})
+                stats.kills = stats.kills + 1
+            end
+        end
+    end
+end
+
+local function autoFarm()
+    for _, p in pairs(workspace:GetDescendants()) do
+        if p:IsA("ProximityPrompt") and p.Enabled then
+            fireproximityprompt(p)
+            stats.rooms = stats.rooms + 1
+        end
+    end
+    for _, z in pairs(workspace:GetChildren()) do
+        if z:FindFirstChild("ExitZone") then
+            local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+            if root then root.CFrame = z.ExitZone.CFrame end
+        end
+    end
+end
+
+local function cleanUI()
+    local gui = player:WaitForChild("PlayerGui")
+    if gui:FindFirstChild("gameUI") then
+        gui.gameUI.upgradeFrame.Visible = false
+    end
+    for _, e in pairs(game.Lighting:GetChildren()) do
+        if e:IsA("BlurEffect") or e.Name:lower():find("death") then
+            e:Destroy()
+        end
+    end
+end
+
+run:BindToRenderStep("PabloOP", Enum.RenderPriority.First.Value, function()
+    if not opEnabled then return end
+    pcall(applyGod)
+    pcall(killAura)
+    pcall(autoFarm)
+end)
+
+cleanUI()
+applyGod()
+log("OP carregado | F1 toggle | F2 burst aura")
+
+uis.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.F1 then
+        opEnabled = not opEnabled
+        log(opEnabled and "OP ATIVADO" or "OP DESATIVADO")
+    elseif input.KeyCode == Enum.KeyCode.F2 then
+        for i = 1, 8 do
+            killAura()
+            task.wait(0.04)
+        end
+        log("Aura burst (8x)")
+    end
+end)
+
+player.CharacterAdded:Connect(function()
+    task.wait(0.5)
+    applyGod()
+    cleanUI()
+    log("Respawn → OP reaplicado")
+end)
+
+spawn(function()
+    while true do
+        task.wait(30)
+        log(string.format("Stats | Kills: %d | Rooms: %d", stats.kills, stats.rooms))
+    end
+end)
+
+log("Pronto. Use com cuidado, Pablo.")
