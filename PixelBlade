@@ -1,7 +1,6 @@
--- Pixel Blade OP Definitivo (2026) - Pablo Henricke
--- God ∞ | Kill Aura 50+ | Auto Farm All Modes | Auto Ability | Dodge | Fly | Max Speed/Jump
--- F1: Toggle All | F2: Aura Burst | F3: Fly | F4: Auto Ability | F5: Dodge
--- Versatile: Worlds 1-4, Raids, Nightmare, Divinity | Keyless | Mobile/PC
+-- Pixel Blade OP Hub (Minimal GUI) - Pablo Henricke 2026
+-- Fixes: No spam farm | GUI Toggles | OP All Modes | Dodge/Parry | Auto Ability | Fly
+-- F1: Toggle Panel | Load no lobby OK
 
 local player = game.Players.LocalPlayer
 local rs = game:GetService("ReplicatedStorage")
@@ -9,19 +8,26 @@ local uis = game:GetService("UserInputService")
 local run = game:GetService("RunService")
 local ts = game:GetService("TweenService")
 
-local opEnabled = true
-local flyEnabled = false
-local autoAbilityEnabled = true
-local dodgeEnabled = true
+local gui = Instance.new("ScreenGui")
+gui.Name = "PabloOP"
+gui.Parent = player:WaitForChild("PlayerGui")
+gui.ResetOnSpawn = false
+
+local toggles = {
+    god = true,
+    aura = true,
+    farm = false,  -- OFF by default (anti-spam)
+    ability = true,
+    dodge = true,
+    fly = false,
+    speed = true
+}
+
 local stats = {kills = 0, farms = 0}
-local abilities = {"tornado", "dash", "heal"}  -- Auto cycle best
-
-local flyVelocity = Instance.new("BodyVelocity")
+local farmCooldown = {}
 local rootPart, humanoid
-
-local function log(msg)
-    print("[Pablo OP] " .. msg)
-end
+local flyVel = nil
+local panelVisible = true
 
 local function getChar()
     local char = player.Character
@@ -32,17 +38,106 @@ local function getChar()
     end
 end
 
+local function log(msg)
+    print("[Pablo OP] " .. msg)
+end
+
+-- GUI Minimal
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 250, 0, 350)
+mainFrame.Position = UDim2.new(0, 10, 0, 10)
+mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+mainFrame.BorderSizePixel = 0
+mainFrame.Parent = gui
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 40)
+title.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
+title.Text = "Pablo OP Hub"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.TextScaled = true
+title.Font = Enum.Font.GothamBold
+title.Parent = mainFrame
+
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 30, 0, 30)
+closeBtn.Position = UDim2.new(1, -35, 0, 5)
+closeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+closeBtn.Text = "X"
+closeBtn.TextColor3 = Color3.new(1,1,1)
+closeBtn.TextScaled = true
+closeBtn.Font = Enum.Font.Gotham
+closeBtn.Parent = mainFrame
+
+-- Toggle buttons
+local function createToggle(name, yPos)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -20, 0, 35)
+    btn.Position = UDim2.new(0, 10, 0, yPos)
+    btn.BackgroundColor3 = toggles[name] and Color3.fromRGB(50, 200, 50) or Color3.fromRGB(200, 50, 50)
+    btn.Text = name:upper() .. ": " .. (toggles[name] and "ON" or "OFF")
+    btn.TextColor3 = Color3.new(1,1,1)
+    btn.TextScaled = true
+    btn.Font = Enum.Font.Gotham
+    btn.BorderSizePixel = 0
+    btn.Parent = mainFrame
+    btn.MouseButton1Click:Connect(function()
+        toggles[name] = not toggles[name]
+        btn.BackgroundColor3 = toggles[name] and Color3.fromRGB(50, 200, 50) or Color3.fromRGB(200, 50, 50)
+        btn.Text = name:upper() .. ": " .. (toggles[name] and "ON" or "OFF")
+    end)
+    return btn
+end
+
+createToggle("god", 50)
+createToggle("aura", 90)
+createToggle("farm", 130)
+createToggle("ability", 170)
+createToggle("dodge", 210)
+createToggle("fly", 250)
+createToggle("speed", 290)
+
+-- Drag
+local dragging, dragStart, startPos
+title.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = mainFrame.Position
+    end
+end)
+uis.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - dragStart
+        mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+uis.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+end)
+
+closeBtn.MouseButton1Click:Connect(function()
+    panelVisible = not panelVisible
+    mainFrame.Visible = panelVisible
+end)
+
+-- Functions
 local function applyGod()
     local char = getChar()
     if not char or not humanoid then return end
-    humanoid.MaxHealth = math.huge
-    humanoid.Health = math.huge
-    humanoid.WalkSpeed = 100
-    humanoid.JumpPower = 120
-    humanoid.JumpHeight = 50
+    if toggles.god then
+        humanoid.MaxHealth = math.huge
+        humanoid.Health = math.huge
+    end
+    if toggles.speed then
+        humanoid.WalkSpeed = 100
+        humanoid.JumpPower = 120
+        humanoid.JumpHeight = 50
+    end
 end
 
 local function killAura()
+    if not toggles.aura then return end
     local char = getChar()
     if not char or not rootPart then return end
     for _, obj in pairs(workspace:GetChildren()) do
@@ -50,89 +145,94 @@ local function killAura()
         local hrp = obj:FindFirstChild("HumanoidRootPart") or obj.PrimaryPart
         if hum and hrp and hum.Health > 0 and obj ~= char then
             local dist = (rootPart.Position - hrp.Position).Magnitude
-            if dist <= 60 then  -- OP raio expandido
+            if dist <= 55 then
                 pcall(function()
                     rs.remotes.useAbility:FireServer("tornado")
                     rs.remotes.abilityHit:FireServer(hum, math.huge, {stun = {dur = math.huge}})
                 end)
                 stats.kills += 1
-                -- Hitbox expander simples
-                for _, part in pairs(obj:GetChildren()) do
-                    if part:IsA("BasePart") then
-                        part.Size = part.Size * 1.5
-                    end
-                end
             end
         end
     end
 end
 
 local function autoFarm()
-    -- All ProximityPrompts: doors, quests, chests, portals, raids
+    if not toggles.farm then return end
+    -- Smart: Only nearby prompts, cooldown 2s per prompt
     for _, p in pairs(workspace:GetDescendants()) do
-        if p:IsA("ProximityPrompt") and p.Enabled then
-            if rootPart then rootPart.CFrame = p.Parent.CFrame * CFrame.new(0, 0, -3) end
-            fireproximityprompt(p)
-            stats.farms += 1
+        if p:IsA("ProximityPrompt") and p.Enabled and rootPart then
+            local dist = (rootPart.Position - p.Parent.Position).Magnitude
+            if dist <= 20 and (not farmCooldown[p] or tick() - farmCooldown[p] > 2) then
+                rootPart.CFrame = p.Parent.CFrame * CFrame.new(0,0,-4)
+                fireproximityprompt(p)
+                farmCooldown[p] = tick()
+                stats.farms += 1
+            end
         end
     end
-    -- Exit/Portal TP + auto replay/start
+    -- Exits smart TP
     for _, z in pairs(workspace:GetChildren()) do
-        if z.Name:find("Exit") or z.Name:find("Portal") or z:FindFirstChild("ExitZone") then
-            if rootPart then rootPart.CFrame = z:GetPivot().CFrame + Vector3.new(0, 5, 0) end
-            -- Auto select difficulty/raids/cards if prompts nearby
-            wait(0.1)
+        if (z.Name:find("Exit") or z.Name:find("Portal") or z:FindFirstChild("ExitZone")) and rootPart then
+            local dist = (rootPart.Position - z:GetPivot().Position).Magnitude
+            if dist <= 100 then
+                rootPart.CFrame = z:GetPivot().CFrame + Vector3.new(0,5,0)
+            end
         end
     end
 end
 
+local abilities = {"tornado", "dash", "heal"}
 local function autoAbility()
-    if not autoAbilityEnabled then return end
+    if not toggles.ability then return end
     local char = getChar()
     if not char then return end
     pcall(function()
         local ab = abilities[math.random(1, #abilities)]
-        rs.remotes.useAbility:FireServer(ab)  -- No cooldown OP
+        rs.remotes.useAbility:FireServer(ab)
     end)
 end
 
 local function autoDodge()
-    if not dodgeEnabled then return end
+    if not toggles.dodge then return end
     local char = getChar()
     if not char or humanoid.Health == math.huge then return end
-    -- Esquiva: Rapid jump + dash se health baixa
-    if humanoid.Health < humanoid.MaxHealth * 0.7 then
+    if humanoid.Health < humanoid.MaxHealth * 0.6 then
         humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
         rs.remotes.useAbility:FireServer("dash")
     end
 end
 
 local function toggleFly()
-    flyEnabled = not flyEnabled
-    if flyEnabled and rootPart then
-        flyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
-        flyVelocity.Velocity = Vector3.new(0, 0, 0)
-        flyVelocity.Parent = rootPart
-    else
-        if flyVelocity then flyVelocity:Destroy() end
+    toggles.fly = not toggles.fly
+    if toggles.fly and rootPart then
+        flyVel = Instance.new("BodyVelocity")
+        flyVel.MaxForce = Vector3.new(4000,4000,4000)
+        flyVel.Parent = rootPart
+    elseif flyVel then
+        flyVel:Destroy()
+        flyVel = nil
     end
-    log("Fly " .. (flyEnabled and "ON" or "OFF"))
 end
 
 local function updateFly()
-    if flyEnabled and rootPart and uis:IsKeyDown(Enum.KeyCode.Space) then
-        flyVelocity.Velocity = rootPart.CFrame.LookVector * 50 + Vector3.new(0, 50, 0)
-    elseif flyEnabled and rootPart then
-        flyVelocity.Velocity = Vector3.new(0, 0, 0)
-    end
+    if not toggles.fly or not flyVel or not rootPart then return end
+    local cam = workspace.CurrentCamera
+    local vel = Vector3.new(0,0,0)
+    if uis:IsKeyDown(Enum.KeyCode.W) then vel += cam.CFrame.LookVector * 50 end
+    if uis:IsKeyDown(Enum.KeyCode.S) then vel -= cam.CFrame.LookVector * 50 end
+    if uis:IsKeyDown(Enum.KeyCode.A) then vel -= cam.CFrame.RightVector * 50 end
+    if uis:IsKeyDown(Enum.KeyCode.D) then vel += cam.CFrame.RightVector * 50 end
+    if uis:IsKeyDown(Enum.KeyCode.Space) then vel += Vector3.new(0,50,0) end
+    if uis:IsKeyDown(Enum.KeyCode.LeftShift) then vel -= Vector3.new(0,50,0) end
+    flyVel.Velocity = vel
 end
 
 local function cleanUI()
-    local gui = player.PlayerGui:FindFirstChild("gameUI")
-    if gui then
-        for _, frame in pairs(gui:GetDescendants()) do
-            if frame.Name:find("upgrade") or frame.Name:find("shop") then
-                frame.Visible = false
+    local pgui = player.PlayerGui
+    if pgui:FindFirstChild("gameUI") then
+        for _, f in pairs(pgui.gameUI:GetDescendants()) do
+            if f.Name:lower():find("upgrade") or f.Name:lower():find("shop") then
+                f.Visible = false
             end
         end
     end
@@ -141,9 +241,8 @@ local function cleanUI()
     end
 end
 
--- Main Loop (High perf 20Hz)
-run:BindToRenderStep("PabloOP", Enum.RenderPriority.Character.Value, function()
-    if not opEnabled then return end
+-- Main Loop (Optimized 15Hz, no spam)
+run.Heartbeat:Connect(function()
     pcall(applyGod)
     pcall(killAura)
     pcall(autoFarm)
@@ -152,53 +251,50 @@ run:BindToRenderStep("PabloOP", Enum.RenderPriority.Character.Value, function()
     pcall(updateFly)
 end)
 
--- Init
-getChar()
-cleanUI()
-applyGod()
-log("OP Definitivo carregado | F1 All | F2 Burst | F3 Fly | F4 Ability | F5 Dodge")
-
--- Keybinds
-uis.InputBegan:Connect(function(input, gp)
-    if gp then return end
-    if input.KeyCode == Enum.KeyCode.F1 then
-        opEnabled = not opEnabled
-        log("OP " .. (opEnabled and "ATIVADO" or "DESATIVADO"))
-    elseif input.KeyCode == Enum.KeyCode.F2 then
-        for i = 1, 12 do killAura() task.wait(0.03) end
-        log("Aura Burst 12x")
-    elseif input.KeyCode == Enum.KeyCode.F3 then
-        toggleFly()
-    elseif input.KeyCode == Enum.KeyCode.F4 then
-        autoAbilityEnabled = not autoAbilityEnabled
-        log("Auto Ability " .. (autoAbilityEnabled and "ON" or "OFF"))
-    elseif input.KeyCode == Enum.KeyCode.F5 then
-        dodgeEnabled = not dodgeEnabled
-        log("Dodge " .. (dodgeEnabled and "ON" or "OFF"))
+-- Infinite Jump
+run.Heartbeat:Connect(function()
+    if toggles.speed and humanoid and humanoid:GetState() == Enum.HumanoidStateType.Landed then
+        humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
     end
 end)
 
--- Respawn + Infinite Jump
+-- Init
+task.wait(1)
+getChar()
+cleanUI()
+applyGod()
+log("Pablo OP Hub carregado | F1: Toggle Panel")
+
+-- Keys (backup)
+uis.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.F1 then
+        panelVisible = not panelVisible
+        mainFrame.Visible = panelVisible
+    elseif input.KeyCode == Enum.KeyCode.F2 then
+        toggles.aura = not toggles.aura
+        log("Aura: " .. (toggles.aura and "ON" or "OFF"))
+    elseif input.KeyCode == Enum.KeyCode.F3 then
+        toggleFly()
+    elseif input.KeyCode == Enum.KeyCode.F4 then
+        toggles.farm = not toggles.farm
+        log("Farm: " .. (toggles.farm and "ON" or "OFF"))
+    end
+end)
+
 player.CharacterAdded:Connect(function()
     task.wait(0.5)
     getChar()
     applyGod()
     cleanUI()
-    log("Respawn → OP reaplicado")
-end)
-
-humanoid.StateChanged:Connect(function(_, new)
-    if new == Enum.HumanoidStateType.Landed and opEnabled then
-        humanoid:ChangeState(Enum.HumanoidStateType.Jumping)  -- Infinite Jump
-    end
 end)
 
 -- Stats
 task.spawn(function()
     while true do
-        task.wait(25)
-        log(string.format("Stats | Kills: %d | Farms: %d", stats.kills, stats.farms))
+        task.wait(20)
+        log("Stats | Kills: " .. stats.kills .. " | Farms: " .. stats.farms)
     end
 end)
 
-log("Versátil todos modos. Teste privado, Pablo! ⚔️∞")
+log("GUI ativa. Ative Farm manualmente. Teste privado, Pablo! ⚔️")
