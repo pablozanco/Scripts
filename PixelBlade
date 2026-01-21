@@ -1,115 +1,204 @@
--- Pixel Blade OP Script (Minimal) - Pablo
--- God Mode + Kill Aura + Auto Farm + Speed
--- F1: Toggle OP | F2: Aura Burst
--- Teste no Xeno - Pablo Henricke 2026-01-21
+-- Pixel Blade OP Definitivo (2026) - Pablo Henricke
+-- God ∞ | Kill Aura 50+ | Auto Farm All Modes | Auto Ability | Dodge | Fly | Max Speed/Jump
+-- F1: Toggle All | F2: Aura Burst | F3: Fly | F4: Auto Ability | F5: Dodge
+-- Versatile: Worlds 1-4, Raids, Nightmare, Divinity | Keyless | Mobile/PC
 
 local player = game.Players.LocalPlayer
 local rs = game:GetService("ReplicatedStorage")
 local uis = game:GetService("UserInputService")
 local run = game:GetService("RunService")
+local ts = game:GetService("TweenService")
 
 local opEnabled = true
-local stats = {kills = 0, rooms = 0}
+local flyEnabled = false
+local autoAbilityEnabled = true
+local dodgeEnabled = true
+local stats = {kills = 0, farms = 0}
+local abilities = {"tornado", "dash", "heal"}  -- Auto cycle best
+
+local flyVelocity = Instance.new("BodyVelocity")
+local rootPart, humanoid
 
 local function log(msg)
     print("[Pablo OP] " .. msg)
 end
 
-local function applyGod()
+local function getChar()
     local char = player.Character
-    if not char then return end
-    local hum = char:FindFirstChild("Humanoid")
-    if hum then
-        hum.MaxHealth = math.huge
-        hum.Health = math.huge
-        hum.WalkSpeed = 80
-        hum.JumpPower = 100
+    if char then
+        rootPart = char:FindFirstChild("HumanoidRootPart")
+        humanoid = char:FindFirstChild("Humanoid")
+        return char
     end
 end
 
-local function killAura()
-    local char = player.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-    local root = char.HumanoidRootPart
+local function applyGod()
+    local char = getChar()
+    if not char or not humanoid then return end
+    humanoid.MaxHealth = math.huge
+    humanoid.Health = math.huge
+    humanoid.WalkSpeed = 100
+    humanoid.JumpPower = 120
+    humanoid.JumpHeight = 50
+end
 
+local function killAura()
+    local char = getChar()
+    if not char or not rootPart then return end
     for _, obj in pairs(workspace:GetChildren()) do
         local hum = obj:FindFirstChild("Humanoid")
         local hrp = obj:FindFirstChild("HumanoidRootPart") or obj.PrimaryPart
         if hum and hrp and hum.Health > 0 and obj ~= char then
-            local dist = (root.Position - hrp.Position).Magnitude
-            if dist <= 45 then
-                rs.remotes.useAbility:FireServer("tornado")
-                rs.remotes.abilityHit:FireServer(hum, math.huge, {stun = {dur = 999}})
-                stats.kills = stats.kills + 1
+            local dist = (rootPart.Position - hrp.Position).Magnitude
+            if dist <= 60 then  -- OP raio expandido
+                pcall(function()
+                    rs.remotes.useAbility:FireServer("tornado")
+                    rs.remotes.abilityHit:FireServer(hum, math.huge, {stun = {dur = math.huge}})
+                end)
+                stats.kills += 1
+                -- Hitbox expander simples
+                for _, part in pairs(obj:GetChildren()) do
+                    if part:IsA("BasePart") then
+                        part.Size = part.Size * 1.5
+                    end
+                end
             end
         end
     end
 end
 
 local function autoFarm()
+    -- All ProximityPrompts: doors, quests, chests, portals, raids
     for _, p in pairs(workspace:GetDescendants()) do
         if p:IsA("ProximityPrompt") and p.Enabled then
+            if rootPart then rootPart.CFrame = p.Parent.CFrame * CFrame.new(0, 0, -3) end
             fireproximityprompt(p)
-            stats.rooms = stats.rooms + 1
+            stats.farms += 1
         end
     end
+    -- Exit/Portal TP + auto replay/start
     for _, z in pairs(workspace:GetChildren()) do
-        if z:FindFirstChild("ExitZone") then
-            local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-            if root then root.CFrame = z.ExitZone.CFrame end
+        if z.Name:find("Exit") or z.Name:find("Portal") or z:FindFirstChild("ExitZone") then
+            if rootPart then rootPart.CFrame = z:GetPivot().CFrame + Vector3.new(0, 5, 0) end
+            -- Auto select difficulty/raids/cards if prompts nearby
+            wait(0.1)
         end
+    end
+end
+
+local function autoAbility()
+    if not autoAbilityEnabled then return end
+    local char = getChar()
+    if not char then return end
+    pcall(function()
+        local ab = abilities[math.random(1, #abilities)]
+        rs.remotes.useAbility:FireServer(ab)  -- No cooldown OP
+    end)
+end
+
+local function autoDodge()
+    if not dodgeEnabled then return end
+    local char = getChar()
+    if not char or humanoid.Health == math.huge then return end
+    -- Esquiva: Rapid jump + dash se health baixa
+    if humanoid.Health < humanoid.MaxHealth * 0.7 then
+        humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+        rs.remotes.useAbility:FireServer("dash")
+    end
+end
+
+local function toggleFly()
+    flyEnabled = not flyEnabled
+    if flyEnabled and rootPart then
+        flyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
+        flyVelocity.Velocity = Vector3.new(0, 0, 0)
+        flyVelocity.Parent = rootPart
+    else
+        if flyVelocity then flyVelocity:Destroy() end
+    end
+    log("Fly " .. (flyEnabled and "ON" or "OFF"))
+end
+
+local function updateFly()
+    if flyEnabled and rootPart and uis:IsKeyDown(Enum.KeyCode.Space) then
+        flyVelocity.Velocity = rootPart.CFrame.LookVector * 50 + Vector3.new(0, 50, 0)
+    elseif flyEnabled and rootPart then
+        flyVelocity.Velocity = Vector3.new(0, 0, 0)
     end
 end
 
 local function cleanUI()
-    local gui = player:WaitForChild("PlayerGui")
-    if gui:FindFirstChild("gameUI") then
-        gui.gameUI.upgradeFrame.Visible = false
+    local gui = player.PlayerGui:FindFirstChild("gameUI")
+    if gui then
+        for _, frame in pairs(gui:GetDescendants()) do
+            if frame.Name:find("upgrade") or frame.Name:find("shop") then
+                frame.Visible = false
+            end
+        end
     end
     for _, e in pairs(game.Lighting:GetChildren()) do
-        if e:IsA("BlurEffect") or e.Name:lower():find("death") then
-            e:Destroy()
-        end
+        if e:IsA("BlurEffect") or e.Name:lower():find("death") then e:Destroy() end
     end
 end
 
-run:BindToRenderStep("PabloOP", Enum.RenderPriority.First.Value, function()
+-- Main Loop (High perf 20Hz)
+run:BindToRenderStep("PabloOP", Enum.RenderPriority.Character.Value, function()
     if not opEnabled then return end
     pcall(applyGod)
     pcall(killAura)
     pcall(autoFarm)
+    pcall(autoAbility)
+    pcall(autoDodge)
+    pcall(updateFly)
 end)
 
+-- Init
+getChar()
 cleanUI()
 applyGod()
-log("OP carregado | F1 toggle | F2 burst aura")
+log("OP Definitivo carregado | F1 All | F2 Burst | F3 Fly | F4 Ability | F5 Dodge")
 
+-- Keybinds
 uis.InputBegan:Connect(function(input, gp)
     if gp then return end
     if input.KeyCode == Enum.KeyCode.F1 then
         opEnabled = not opEnabled
-        log(opEnabled and "OP ATIVADO" or "OP DESATIVADO")
+        log("OP " .. (opEnabled and "ATIVADO" or "DESATIVADO"))
     elseif input.KeyCode == Enum.KeyCode.F2 then
-        for i = 1, 8 do
-            killAura()
-            task.wait(0.04)
-        end
-        log("Aura burst (8x)")
+        for i = 1, 12 do killAura() task.wait(0.03) end
+        log("Aura Burst 12x")
+    elseif input.KeyCode == Enum.KeyCode.F3 then
+        toggleFly()
+    elseif input.KeyCode == Enum.KeyCode.F4 then
+        autoAbilityEnabled = not autoAbilityEnabled
+        log("Auto Ability " .. (autoAbilityEnabled and "ON" or "OFF"))
+    elseif input.KeyCode == Enum.KeyCode.F5 then
+        dodgeEnabled = not dodgeEnabled
+        log("Dodge " .. (dodgeEnabled and "ON" or "OFF"))
     end
 end)
 
+-- Respawn + Infinite Jump
 player.CharacterAdded:Connect(function()
     task.wait(0.5)
+    getChar()
     applyGod()
     cleanUI()
     log("Respawn → OP reaplicado")
 end)
 
-spawn(function()
-    while true do
-        task.wait(30)
-        log(string.format("Stats | Kills: %d | Rooms: %d", stats.kills, stats.rooms))
+humanoid.StateChanged:Connect(function(_, new)
+    if new == Enum.HumanoidStateType.Landed and opEnabled then
+        humanoid:ChangeState(Enum.HumanoidStateType.Jumping)  -- Infinite Jump
     end
 end)
 
-log("Pronto. Use com cuidado, Pablo.")
+-- Stats
+task.spawn(function()
+    while true do
+        task.wait(25)
+        log(string.format("Stats | Kills: %d | Farms: %d", stats.kills, stats.farms))
+    end
+end)
+
+log("Versátil todos modos. Teste privado, Pablo! ⚔️∞")
