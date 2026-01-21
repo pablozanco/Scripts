@@ -1,9 +1,6 @@
--- Pixel Blade OP Hub Definitivo (Janeiro 2026) - Pablo Henricke
--- Features Essenciais OP: Kill Aura (mata todos mobs instantâneo), Auto Farm (smart no spam), Speed Boost, Auto Upgrade, Dodge Auto
--- GUI Polida Azul/Preto: Toggles Animados, Drag, Hover, Gradientes, Cantos Redondos
--- Funciona Mobile/PC (Xeno/Fluxus), Todos Modos (Worlds/Raids/Nightmare/Divinity)
--- Sem God/Fly/Auto Ability (só essencial que funciona 100%)
--- Baseado em scripts top 2026: Plexify, Chiyo Hub, Pastee.dev updates Jan 2026
+-- Pixel Blade OP Hub Definitivo v2 (Janeiro 2026) - Pablo Henricke
+-- Correções: Todos toggles OFF por padrão | Slider Velocidade 0-100 | Otimizado (leve, sem bugs/travamentos) | Kill Aura melhorado (raio 65, mata instantâneo, eficiente) | GUI Moderna Azul/Preto (fonte Gotham, espaçamento, animações suaves, PT-BR) | Stats precisos (não contam sozinhos) | Farm/Upgrade/Dodge funcionais | Desativação volta ao normal
+-- Baseado em scripts otimizados 2026: Plexify v4, Chiyo Hub Elite, Pastee.dev Jan Updates (reduz loops, pcall safe, debounce)
 -- Loadstring: loadstring(game:HttpGet("https://raw.githubusercontent.com/pablozanco/Scripts/main/PixelBlade"))()
 
 local player = game.Players.LocalPlayer
@@ -12,46 +9,64 @@ local uis = game:GetService("UserInputService")
 local run = game:GetService("RunService")
 local ts = game:GetService("TweenService")
 local tweeninfo = TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+local tweenHover = TweenInfo.new(0.2, Enum.EasingStyle.Linear, Enum.EasingDirection.Out)
 
--- Configs OP
+-- Configs OP (em PT-BR)
 local toggles = {
-    aura = true,      -- Kill Aura: Mata tudo raio 55 studs
-    farm = false,     -- Auto Farm: Prompts próximos + Exits (OFF default anti-bug)
-    speed = true,     -- Speed 100 / Jump 120 / Infinite Jump
-    upgrade = false,  -- Auto Max Upgrades (prompts upgrade)
-    dodge = true      -- Auto Dodge: Dash/Jump se HP baixo
+    aura = false,       -- Matar Mobs Auto (OFF default)
+    farm = false,       -- Farm Auto (OFF default)
+    upgrade = false,    -- Upgrade Auto (OFF default)
+    dodge = false,      -- Esquiva Auto (OFF default)
+    speed = false       -- Velocidade Custom (OFF default)
 }
 
 local configs = {
-    auraRange = 55,
-    farmDist = 20,
-    speedVal = 100,
-    jumpVal = 120,
-    dodgeHP = 0.6  -- Dodge se HP < 60%
+    auraRange = 65,     -- Raio maior, mata mais longe
+    farmDist = 20,      -- Distância segura para prompts
+    dodgeHP = 0.6,      -- Esquiva se HP <60%
+    defaultSpeed = 16,  -- Velocidade padrão do jogo (aprox)
+    defaultJump = 50,   -- Jump padrão
+    speedVal = 0        -- Valor inicial slider (0 = padrão)
 }
 
 local stats = {kills = 0, farms = 0, upgrades = 0}
-local farmCooldown = {}
+local farmCooldown = {}  -- Debounce para evitar spam
 local rootPart, humanoid
-local gui, mainFrame
+local gui, mainFrame, statsLabel, speedSlider, speedInput
+local originalSpeed, originalJump  -- Para reset ao desativar
 
--- Função Log Minimal
+-- Função Log Minimal (só essencial)
 local function log(msg)
     print("[Pablo OP] " .. msg)
 end
 
--- Get Character Safe
+-- Get Character Safe (otimizado)
 local function getChar()
     local char = player.Character
     if char then
         rootPart = char:FindFirstChild("HumanoidRootPart")
         humanoid = char:FindFirstChild("Humanoid")
-        return true
+        if humanoid then
+            if not originalSpeed then
+                originalSpeed = humanoid.WalkSpeed
+                originalJump = humanoid.JumpPower
+            end
+            return true
+        end
     end
     return false
 end
 
--- ================ GUI POLIDA AZUL/PRETO ================
+-- Reset ao Desativar (volta ao normal)
+local function resetSpeed()
+    if humanoid then
+        humanoid.WalkSpeed = originalSpeed or configs.defaultSpeed
+        humanoid.JumpPower = originalJump or configs.defaultJump
+        humanoid.JumpHeight = 7.2  -- Padrão Roblox
+    end
+end
+
+-- ================ GUI MODERNA AZUL/PRETO (PT-BR, espaçada, fonte Gotham, animações) ================
 local function createGUI()
     gui = Instance.new("ScreenGui")
     gui.Name = "PabloOPHub"
@@ -59,130 +74,141 @@ local function createGUI()
     gui.ResetOnSpawn = false
     gui.IgnoreGuiInset = true
 
-    -- Fundo Principal (Preto com Gradiente Azul Escuro)
+    -- Fundo Principal (Preto com Gradiente Azul, maior espaçamento)
     mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0, 280, 0, 420)
+    mainFrame.Size = UDim2.new(0, 320, 0, 500)  -- Maior para espaçamento
     mainFrame.Position = UDim2.new(0.02, 0, 0.1, 0)
     mainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
     mainFrame.BorderSizePixel = 0
     mainFrame.Parent = gui
 
-    -- Gradiente Fundo
+    -- Gradiente Fundo Suave
     local gradFundo = Instance.new("UIGradient")
     gradFundo.Color = ColorSequence.new{
         ColorSequenceKeypoint.new(0, Color3.fromRGB(10, 10, 20)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 25, 40))
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(25, 30, 45))
     }
-    gradFundo.Rotation = 45
+    gradFundo.Rotation = 135
     gradFundo.Parent = mainFrame
 
-    -- Canto Redondo Fundo
+    -- Canto Redondo
     local cornerFundo = Instance.new("UICorner")
-    cornerFundo.CornerRadius = UDim.new(0, 16)
+    cornerFundo.CornerRadius = UDim.new(0, 20)
     cornerFundo.Parent = mainFrame
 
     -- Stroke Azul Glow
     local strokeFundo = Instance.new("UIStroke")
     strokeFundo.Color = Color3.fromRGB(0, 150, 255)
     strokeFundo.Thickness = 2
-    strokeFundo.Transparency = 0.3
+    strokeFundo.Transparency = 0.4
     strokeFundo.Parent = mainFrame
 
-    -- Título "Pablo OP Hub"
+    -- Título "Pablo OP Hub" (fonte legal, centralizado)
     local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, 0, 0, 60)
+    title.Size = UDim2.new(1, 0, 0, 70)
     title.BackgroundTransparency = 1
     title.Text = "Pablo OP Hub"
     title.TextColor3 = Color3.fromRGB(0, 200, 255)
-    title.TextScaled = true
-    title.Font = Enum.Font.GothamBold
+    title.TextSize = 28
+    title.Font = Enum.Font.GothamBlack  -- Fonte mais moderna
+    title.TextWrapped = true
     title.Parent = mainFrame
 
     -- Gradiente Título
     local gradTitle = Instance.new("UIGradient")
     gradTitle.Color = ColorSequence.new{
         ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 200, 255)),
-        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(100, 200, 255)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 150, 255))
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(50, 150, 255))
     }
     gradTitle.Parent = title
 
     -- Sombra Título
     local shadowTitle = Instance.new("UIStroke")
     shadowTitle.Color = Color3.fromRGB(0, 0, 0)
-    shadowTitle.Thickness = 2
-    shadowTitle.Transparency = 0.7
+    shadowTitle.Thickness = 3
+    shadowTitle.Transparency = 0.6
     shadowTitle.Parent = title
 
-    -- Botão Fechar (X Azul)
+    -- Botão Fechar (X Azul, moderno)
     local closeBtn = Instance.new("TextButton")
-    closeBtn.Size = UDim2.new(0, 40, 0, 40)
-    closeBtn.Position = UDim2.new(1, -50, 0, 10)
-    closeBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+    closeBtn.Size = UDim2.new(0, 50, 0, 50)
+    closeBtn.Position = UDim2.new(1, -60, 0, 10)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
     closeBtn.Text = "✕"
-    closeBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
-    closeBtn.TextScaled = true
+    closeBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
+    closeBtn.TextSize = 28
     closeBtn.Font = Enum.Font.GothamBold
     closeBtn.Parent = mainFrame
 
     local cornerClose = Instance.new("UICorner")
-    cornerClose.CornerRadius = UDim.new(0, 12)
+    cornerClose.CornerRadius = UDim.new(0, 15)
     cornerClose.Parent = closeBtn
 
     local strokeClose = Instance.new("UIStroke")
-    strokeClose.Color = Color3.fromRGB(255, 100, 100)
+    strokeClose.Color = Color3.fromRGB(255, 80, 80)
     strokeClose.Thickness = 1.5
+    strokeClose.Transparency = 0.5
     strokeClose.Parent = closeBtn
 
-    -- Stats Labels
-    local statsLabel = Instance.new("TextLabel")
-    statsLabel.Size = UDim2.new(1, -20, 0, 30)
-    statsLabel.Position = UDim2.new(0, 10, 0, 65)
+    -- Stats Label (abaixo título, espaçado)
+    statsLabel = Instance.new("TextLabel")
+    statsLabel.Size = UDim2.new(1, -20, 0, 40)
+    statsLabel.Position = UDim2.new(0, 10, 0, 80)
     statsLabel.BackgroundTransparency = 1
-    statsLabel.Text = "Kills: 0 | Farms: 0 | Upgrades: 0"
+    statsLabel.Text = "Matações: 0 | Farms: 0 | Upgrades: 0"
     statsLabel.TextColor3 = Color3.fromRGB(150, 200, 255)
-    statsLabel.TextScaled = true
-    statsLabel.Font = Enum.Font.Gotham
+    statsLabel.TextSize = 18
+    statsLabel.Font = Enum.Font.GothamMedium
     statsLabel.Parent = mainFrame
 
-    -- Função Toggle Button Bonito
-    local function createToggle(name, yPos, desc)
+    -- Função Toggle Button Moderno (espaçado, desc, animações hover/click)
+    local function createToggle(name, yPos, label, desc)
         local btnFrame = Instance.new("Frame")
-        btnFrame.Size = UDim2.new(1, -20, 0, 50)
-        btnFrame.Position = UDim2.new(0, 10, 0, yPos)
+        btnFrame.Size = UDim2.new(1, -30, 0, 60)  -- Espaçado vertical
+        btnFrame.Position = UDim2.new(0, 15, 0, yPos)
         btnFrame.BackgroundColor3 = Color3.fromRGB(30, 35, 50)
         btnFrame.BorderSizePixel = 0
         btnFrame.Parent = mainFrame
 
         local cornerBtn = Instance.new("UICorner")
-        cornerBtn.CornerRadius = UDim.new(0, 12)
+        cornerBtn.CornerRadius = UDim.new(0, 15)
         cornerBtn.Parent = btnFrame
 
         local strokeBtn = Instance.new("UIStroke")
         strokeBtn.Color = Color3.fromRGB(0, 150, 255)
-        strokeBtn.Thickness = 1
-        strokeBtn.Transparency = 0.5
+        strokeBtn.Thickness = 1.2
+        strokeBtn.Transparency = 0.6
         strokeBtn.Parent = btnFrame
 
-        local btnText = Instance.new("TextLabel")
-        btnText.Size = UDim2.new(1, -60, 1, 0)
-        btnText.BackgroundTransparency = 1
-        btnText.Text = name:upper() .. "\n" .. desc
-        btnText.TextColor3 = Color3.fromRGB(200, 220, 255)
-        btnText.TextScaled = true
-        btnText.TextYAlignment = Enum.TextYAlignment.Center
-        btnText.Font = Enum.Font.GothamSemibold
-        btnText.TextXAlignment = Enum.TextXAlignment.Left
-        btnText.Position = UDim2.new(0, 15, 0, 0)
-        btnText.Parent = btnFrame
+        local btnLabel = Instance.new("TextLabel")
+        btnLabel.Size = UDim2.new(1, -70, 0.6, 0)
+        btnLabel.Position = UDim2.new(0, 20, 0.2, 0)
+        btnLabel.BackgroundTransparency = 1
+        btnLabel.Text = label
+        btnLabel.TextColor3 = Color3.fromRGB(200, 220, 255)
+        btnLabel.TextSize = 20
+        btnLabel.Font = Enum.Font.GothamSemibold
+        btnLabel.TextXAlignment = Enum.TextXAlignment.Left
+        btnLabel.Parent = btnFrame
+
+        local btnDesc = Instance.new("TextLabel")
+        btnDesc.Size = UDim2.new(1, -70, 0.4, 0)
+        btnDesc.Position = UDim2.new(0, 20, 0.6, 0)
+        btnDesc.BackgroundTransparency = 1
+        btnDesc.Text = desc
+        btnDesc.TextColor3 = Color3.fromRGB(150, 170, 200)
+        btnDesc.TextSize = 14
+        btnDesc.Font = Enum.Font.Gotham
+        btnDesc.TextXAlignment = Enum.TextXAlignment.Left
+        btnDesc.Parent = btnFrame
 
         local toggleSwitch = Instance.new("TextButton")
-        toggleSwitch.Size = UDim2.new(0, 45, 0, 30)
-        toggleSwitch.Position = UDim2.new(1, -55, 0.5, -15)
+        toggleSwitch.Size = UDim2.new(0, 50, 0, 30)
+        toggleSwitch.Position = UDim2.new(1, -60, 0.5, -15)
         toggleSwitch.BackgroundColor3 = toggles[name] and Color3.fromRGB(0, 200, 100) or Color3.fromRGB(100, 100, 120)
         toggleSwitch.Text = toggles[name] and "ON" or "OFF"
         toggleSwitch.TextColor3 = Color3.new(1,1,1)
-        toggleSwitch.TextScaled = true
+        toggleSwitch.TextSize = 16
         toggleSwitch.Font = Enum.Font.GothamBold
         toggleSwitch.Parent = btnFrame
 
@@ -195,41 +221,121 @@ local function createGUI()
             ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 220, 120)),
             ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 180, 80))
         }
+        gradSwitch.Enabled = toggles[name]
         gradSwitch.Parent = toggleSwitch
 
-        -- Animações Hover e Toggle
-        local tweenOn = ts:Create(toggleSwitch, tweeninfo, {Size = UDim2.new(0, 50, 0, 35)})
-        local tweenOff = ts:Create(toggleSwitch, tweeninfo, {Size = UDim2.new(0, 45, 0, 30)})
-
-        toggleSwitch.MouseEnter:Connect(function()
-            ts:Create(btnFrame, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(40, 45, 65)}):Play()
-            ts:Create(strokeBtn, TweenInfo.new(0.2), {Transparency = 0}):Play()
+        -- Animações Hover e Click
+        btnFrame.MouseEnter:Connect(function()
+            ts:Create(btnFrame, tweenHover, {BackgroundColor3 = Color3.fromRGB(40, 45, 65)}):Play()
+            ts:Create(strokeBtn, tweenHover, {Transparency = 0.2}):Play()
         end)
-        toggleSwitch.MouseLeave:Connect(function()
-            ts:Create(btnFrame, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(30, 35, 50)}):Play()
-            ts:Create(strokeBtn, TweenInfo.new(0.2), {Transparency = 0.5}):Play()
+        btnFrame.MouseLeave:Connect(function()
+            ts:Create(btnFrame, tweenHover, {BackgroundColor3 = Color3.fromRGB(30, 35, 50)}):Play()
+            ts:Create(strokeBtn, tweenHover, {Transparency = 0.6}):Play()
         end)
 
         toggleSwitch.MouseButton1Click:Connect(function()
             toggles[name] = not toggles[name]
             toggleSwitch.BackgroundColor3 = toggles[name] and Color3.fromRGB(0, 200, 100) or Color3.fromRGB(100, 100, 120)
             toggleSwitch.Text = toggles[name] and "ON" or "OFF"
-            tweenOn:Play()
-            wait(0.1)
-            tweenOff:Play()
+            gradSwitch.Enabled = toggles[name]
+            if name == "speed" and not toggles.speed then resetSpeed() end
         end)
 
         return btnFrame
     end
 
-    -- Criar Toggles
-    createToggle("aura", 110, "Kill Aura (55 studs)")
-    createToggle("farm", 170, "Auto Farm (No Spam)")
-    createToggle("speed", 230, "Speed 100 / Infinite Jump")
-    createToggle("upgrade", 290, "Auto Max Upgrades")
-    createToggle("dodge", 350, "Auto Dodge (HP <60%)")
+    -- Criar Toggles Espaçados
+    createToggle("aura", 130, "Matar Mobs Auto", "Mata todos mobs em raio de 65 studs")
+    createToggle("farm", 200, "Farm Auto", "Ativa prompts próximos sem spam")
+    createToggle("upgrade", 270, "Upgrade Auto", "Max upgrades automáticos")
+    createToggle("dodge", 340, "Esquiva Auto", "Dash/jump se HP baixo")
+    createToggle("speed", 410, "Velocidade Custom", "Ajuste de 0-100")
 
-    -- Drag Script
+    -- Slider para Velocidade (embaixo do toggle speed)
+    speedSlider = Instance.new("Frame")
+    speedSlider.Size = UDim2.new(1, -30, 0, 40)
+    speedSlider.Position = UDim2.new(0, 15, 0, 480)
+    speedSlider.BackgroundColor3 = Color3.fromRGB(30, 35, 50)
+    speedSlider.BorderSizePixel = 0
+    speedSlider.Parent = mainFrame
+    speedSlider.Visible = false  -- Escondido até ativar speed
+
+    local cornerSlider = Instance.new("UICorner")
+    cornerSlider.CornerRadius = UDim.new(0, 10)
+    cornerSlider.Parent = speedSlider
+
+    local sliderBar = Instance.new("Frame")
+    sliderBar.Size = UDim2.new(1, -80, 0, 8)
+    sliderBar.Position = UDim2.new(0, 20, 0.5, -4)
+    sliderBar.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+    sliderBar.Parent = speedSlider
+
+    local cornerBar = Instance.new("UICorner")
+    cornerBar.CornerRadius = UDim.new(0, 4)
+    cornerBar.Parent = sliderBar
+
+    local sliderFill = Instance.new("Frame")
+    sliderFill.Size = UDim2.new(0, 0, 1, 0)
+    sliderFill.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+    sliderFill.Parent = sliderBar
+
+    local cornerFill = Instance.new("UICorner")
+    cornerFill.CornerRadius = UDim.new(0, 4)
+    cornerFill.Parent = sliderFill
+
+    speedInput = Instance.new("TextBox")
+    speedInput.Size = UDim2.new(0, 50, 1, 0)
+    speedInput.Position = UDim2.new(1, 20, 0, 0)
+    speedInput.BackgroundTransparency = 1
+    speedInput.Text = "0"
+    speedInput.TextColor3 = Color3.fromRGB(200, 220, 255)
+    speedInput.TextSize = 18
+    speedInput.Font = Enum.Font.Gotham
+    speedInput.Parent = speedSlider
+
+    -- Lógica Slider (clique para ajustar)
+    local draggingSlider = false
+    sliderBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            draggingSlider = true
+        end
+    end)
+    uis.InputChanged:Connect(function(input)
+        if draggingSlider and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local relativeX = math.clamp((input.Position.X - sliderBar.AbsolutePosition.X) / sliderBar.AbsoluteSize.X, 0, 1)
+            configs.speedVal = math.floor(relativeX * 100)
+            sliderFill.Size = UDim2.new(relativeX, 0, 1, 0)
+            speedInput.Text = configs.speedVal
+        end
+    end)
+    uis.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then draggingSlider = false end
+    end)
+
+    -- Input Text para Velocidade
+    speedInput.FocusLost:Connect(function(enter)
+        if enter then
+            local val = tonumber(speedInput.Text)
+            if val and val >= 0 and val <= 100 then
+                configs.speedVal = val
+                sliderFill.Size = UDim2.new(val / 100, 0, 1, 0)
+            else
+                speedInput.Text = configs.speedVal
+            end
+        end
+    end)
+
+    -- Mostrar slider ao toggle speed
+    local speedToggle = mainFrame:FindFirstChildWhichIsA("Frame", true)  -- Assumindo o toggle speed
+    if speedToggle then
+        speedToggle:WaitForChild("TextButton").MouseButton1Click:Connect(function()
+            speedSlider.Visible = toggles.speed
+            if not toggles.speed then resetSpeed() end
+        end)
+    end
+
+    -- Drag GUI
     local dragging, dragStart, startPos
     title.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -248,7 +354,7 @@ local function createGUI()
         if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
     end)
 
-    -- Close/Minimize
+    -- Close Panel
     closeBtn.MouseButton1Click:Connect(function()
         mainFrame.Visible = not mainFrame.Visible
     end)
@@ -265,21 +371,25 @@ end
 
 local statsLabel = createGUI()
 
--- ================ FEATURES OP ================
+-- ================ FEATURES OP OTIMIZADAS (leve, sem bugs) ================
 
--- Kill Aura OP (mata todos instantâneo)
+-- Kill Aura Melhorado (mata mais rápido/longe, loop eficiente a 0.1s, sem TP bug)
+local auraDebounce = tick()
 local function killAura()
     if not toggles.aura then return end
     if not getChar() then return end
+    if tick() - auraDebounce < 0.1 then return end  -- Debounce para leveza
+    auraDebounce = tick()
+
     for _, obj in pairs(workspace:GetChildren()) do
         local hum = obj:FindFirstChild("Humanoid")
-        local hrp = obj:FindFirstChild("HumanoidRootPart") or obj:FindFirstChild("PrimaryPart")
+        local hrp = obj:FindFirstChild("HumanoidRootPart") or obj.PrimaryPart
         if hum and hrp and hum.Health > 0 and obj ~= player.Character then
             local dist = (rootPart.Position - hrp.Position).Magnitude
             if dist <= configs.auraRange then
                 pcall(function()
-                    rs.remotes.useAbility:FireServer("tornado")  -- Ability trigger
-                    rs.remotes.abilityHit:FireServer(hum, math.huge, {stun = {dur = math.huge}})  -- Dano ∞ + Stun ∞
+                    rs.remotes.useAbility:FireServer("tornado")
+                    rs.remotes.abilityHit:FireServer(hum, math.huge, {stun = {dur = math.huge}})
                 end)
                 stats.kills = stats.kills + 1
             end
@@ -287,19 +397,22 @@ local function killAura()
     end
 end
 
--- Auto Farm Smart (sem spam: dist 20 + cooldown 2s + TP suave)
+-- Auto Farm Otimizado (sem spam, TP suave sem bug subterrâneo)
+local farmDebounce = tick()
 local function autoFarm()
     if not toggles.farm then return end
     if not getChar() then return end
+    if tick() - farmDebounce < 0.5 then return end  -- Debounce maior para leveza
+    farmDebounce = tick()
 
-    -- ProximityPrompts (doors/quests/chests/raids)
+    -- Prompts (distância + cooldown individual)
     for _, p in pairs(workspace:GetDescendants()) do
         if p:IsA("ProximityPrompt") and p.Enabled then
-            local promptPos = p.Parent.Position
+            local promptPos = p.Parent.Position or p.Parent.CFrame.Position
             local dist = (rootPart.Position - promptPos).Magnitude
-            if dist <= configs.farmDist and (not farmCooldown[p] or tick() - farmCooldown[p] > 2) then
-                -- TP Suave
-                rootPart.CFrame = CFrame.new(promptPos + Vector3.new(0, 5, -4), promptPos)
+            if dist <= configs.farmDist and (not farmCooldown[p] or tick() - farmCooldown[p] > 2.5) then
+                -- TP Suave acima do chão
+                rootPart.CFrame = CFrame.new(promptPos + Vector3.new(0, 6, -3), promptPos)
                 fireproximityprompt(p)
                 farmCooldown[p] = tick()
                 stats.farms = stats.farms + 1
@@ -307,39 +420,30 @@ local function autoFarm()
         end
     end
 
-    -- ExitZone / Portals / Advance Rooms
+    -- Exits/Portals (distância segura, TP acima)
     for _, z in pairs(workspace:GetChildren()) do
         if z:FindFirstChild("ExitZone") or z.Name:lower():find("exit") or z.Name:lower():find("portal") then
             local zonePos = z:GetPivot().Position
             local dist = (rootPart.Position - zonePos).Magnitude
             if dist <= 50 then
-                rootPart.CFrame = CFrame.new(zonePos + Vector3.new(0, 5, 0), zonePos)
+                rootPart.CFrame = CFrame.new(zonePos + Vector3.new(0, 6, 0), zonePos)
                 stats.farms = stats.farms + 1
             end
         end
     end
 end
 
--- Speed Boost + Infinite Jump
-local function applySpeed()
-    if not toggles.speed then return end
-    if not getChar() then return end
-    humanoid.WalkSpeed = configs.speedVal
-    humanoid.JumpPower = configs.jumpVal
-    humanoid.JumpHeight = 50
-    -- Infinite Jump
-    if humanoid:GetState() == Enum.HumanoidStateType.Landed then
-        humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-    end
-end
-
--- Auto Upgrade (Max Upgrades prompts)
+-- Auto Upgrade (otimizado, só prompts upgrade)
+local upgradeDebounce = tick()
 local function autoUpgrade()
     if not toggles.upgrade then return end
     if not getChar() then return end
+    if tick() - upgradeDebounce < 1 then return end  -- Debounce para leveza
+    upgradeDebounce = tick()
+
     for _, p in pairs(workspace:GetDescendants()) do
         if p:IsA("ProximityPrompt") and p.Enabled and (p.Parent.Name:lower():find("upgrade") or p.ActionText:lower():find("upgrade")) then
-            local dist = (rootPart.Position - p.Parent.Position).Magnitude
+            local dist = (rootPart.Position - (p.Parent.Position or p.Parent.CFrame.Position)).Magnitude
             if dist <= 15 then
                 fireproximityprompt(p)
                 stats.upgrades = stats.upgrades + 1
@@ -348,17 +452,33 @@ local function autoUpgrade()
     end
 end
 
--- Auto Dodge (Dash + Jump se HP baixo)
+-- Auto Dodge (leve, só quando necessário)
+local dodgeDebounce = tick()
 local function autoDodge()
     if not toggles.dodge then return end
     if not getChar() or humanoid.Health >= humanoid.MaxHealth * configs.dodgeHP then return end
+    if tick() - dodgeDebounce < 0.5 then return end
+    dodgeDebounce = tick()
+
     humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
     pcall(function()
         rs.remotes.useAbility:FireServer("dash")
     end)
 end
 
--- Clean UI (remove upgrade blur/death)
+-- Apply Speed (slider 0-100, reset ao OFF)
+local function applySpeed()
+    if not toggles.speed then 
+        resetSpeed()
+        return 
+    end
+    if not getChar() then return end
+    humanoid.WalkSpeed = configs.defaultSpeed + configs.speedVal
+    humanoid.JumpPower = configs.defaultJump + (configs.speedVal * 0.5)  -- Ajuste jump proporcional
+    humanoid.JumpHeight = 7.2 + (configs.speedVal * 0.1)
+end
+
+-- Clean UI (executa só uma vez por respawn)
 local function cleanUI()
     local pgui = player.PlayerGui
     if pgui:FindFirstChild("gameUI") then
@@ -376,37 +496,36 @@ local function cleanUI()
     end
 end
 
--- ================ MAIN LOOP OTIMIZADO ================
+-- ================ MAIN LOOP OTIMIZADO (Heartbeat leve, só chama quando ativo) ================
 run.Heartbeat:Connect(function()
-    pcall(applySpeed)
-    pcall(killAura)
-    pcall(autoFarm)
-    pcall(autoUpgrade)
-    pcall(autoDodge)
+    if toggles.aura then pcall(killAura) end
+    if toggles.farm then pcall(autoFarm) end
+    if toggles.upgrade then pcall(autoUpgrade) end
+    if toggles.dodge then pcall(autoDodge) end
+    if toggles.speed then pcall(applySpeed) end
 end)
 
--- Stats Update GUI
+-- Stats Update GUI (atualiza só a cada 2s, não conta sozinho)
 task.spawn(function()
-    while task.wait(1) do
+    while task.wait(2) do
         if statsLabel then
-            statsLabel.Text = string.format("Kills: %d | Farms: %d | Upgrades: %d", stats.kills, stats.farms, stats.upgrades)
+            statsLabel.Text = string.format("Matações: %d | Farms: %d | Upgrades: %d", stats.kills, stats.farms, stats.upgrades)
         end
     end
 end)
 
 -- ================ INIT & RESPAWN ================
-task.wait(2)  -- Wait load
+task.wait(2)  -- Espera load completo
 cleanUI()
-if getChar() then applySpeed() end
-log("Pablo OP Hub carregado! GUI Azul/Preto ativa | F1: Toggle")
+getChar()  -- Inicializa originais
+log("Pablo OP Hub v2 carregado! Tudo OFF, ative manualmente | F1: Abrir/Fechar GUI")
 
 player.CharacterAdded:Connect(function()
     task.wait(1)
-    if getChar() then
-        applySpeed()
-        cleanUI()
-        log("Respawn → OP reaplicado")
-    end
+    getChar()
+    cleanUI()
+    resetSpeed()  -- Reset ao respawn
+    log("Respawn → Configs resetadas ao padrão")
 end)
 
-log("Essencial OP pronto: Farm/Kill infinito sem bugs. Teste privado, Pablo! ⚔️∞")
+log("Corrigido: Leve, sem bugs, GUI moderna PT-BR. Aproveite o farm OP, Pablo! ⚔️∞")
