@@ -1,6 +1,6 @@
--- Pixel Blade OP Hub v6 (January 2026) - Pablo Henricke
--- All toggles OFF by default | GUI opens with F1 | Minimize with ↕ | Names in English | Fixed visibility/interaction
--- Kill Aura | Auto Farm | Skill Upgrades | Speed Slider | No bugs on level up/ability screens
+-- Pixel Blade OP Hub v7 (January 2026) - Pablo Henricke
+-- FIXED: GUI fully interactive | Minimize/Open with ↕ & F1 | Toggles clickable | Names in English
+-- Kill Aura | Auto Farm | Skill Upgrades | Speed Slider | All OFF by default | No bugs
 -- Loadstring: loadstring(game:HttpGet("https://raw.githubusercontent.com/pablozanco/Scripts/main/PixelBlade"))()
 
 local player = game.Players.LocalPlayer
@@ -16,7 +16,7 @@ local toggles = {
     aura = false,       -- Kill Aura
     farm = false,       -- Auto Farm
     upgrades = false,   -- Skill Upgrades
-    speed = false       -- Speed Slider
+    speed = false       -- Speed
 }
 
 local configs = {
@@ -30,15 +30,11 @@ local configs = {
     debounceAura = 0.05,
     debounceFarm = 0.4,
     debounceUpgrade = 0.8,
-    guiZIndex = 9999    -- Muito alto para sobrepor tudo
+    guiZIndex = 9999
 }
 
 local stats = {kills = 0, farms = 0, upgrades = 0}
-local cooldowns = {
-    aura = 0,
-    farm = {global = 0},
-    upgrade = 0
-}
+local cooldowns = {aura = 0, farm = {global = 0}, upgrade = 0}
 local rootPart = nil
 local humanoid = nil
 local originalSpeed = nil
@@ -51,12 +47,10 @@ local speedSliderFill = nil
 local panelVisible = true
 local guiLoaded = false
 
--- Safe Log
 local function safeLog(msg, err)
-    if err then warn("[Pablo OP v6 ERROR] " .. msg) else print("[Pablo OP v6] " .. msg) end
+    if err then warn("[Pablo OP v7 ERROR] " .. msg) else print("[Pablo OP v7] " .. msg) end
 end
 
--- Get Character
 local function getCharSafe()
     local char = player.Character
     if not char then return false end
@@ -75,7 +69,6 @@ local function getCharSafe()
     return false
 end
 
--- Full Reset
 local function fullReset()
     if humanoid then
         pcall(function()
@@ -84,10 +77,8 @@ local function fullReset()
             humanoid.JumpHeight = originalHeight or 7.2
         end)
     end
-    safeLog("Full reset applied - game back to normal")
 end
 
--- Recursive ZIndex
 local function setZIndexRecursive(obj, z)
     obj.ZIndex = z
     for _, child in pairs(obj:GetChildren()) do
@@ -95,18 +86,18 @@ local function setZIndexRecursive(obj, z)
     end
 end
 
--- GUI Creation
 local function createGUI()
     if guiLoaded then return end
     
     local success, err = pcall(function()
         gui = Instance.new("ScreenGui")
-        gui.Name = "PabloOPv6"
+        gui.Name = "PabloOPv7"
         gui.ResetOnSpawn = false
         gui.IgnoreGuiInset = true
         gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        gui.DisplayOrder = 999
         gui.Enabled = true
-        gui.Parent = player:WaitForChild("PlayerGui", 10)
+        gui.Parent = player:WaitForChild("PlayerGui", 15)
         
         mainFrame = Instance.new("Frame")
         mainFrame.Size = UDim2.new(0, 220, 0, 380)
@@ -116,35 +107,30 @@ local function createGUI()
         mainFrame.Visible = true
         mainFrame.Parent = gui
         
-        -- Gradient
         local grad = Instance.new("UIGradient")
         grad.Color = ColorSequence.new(Color3.fromRGB(8,12,25), Color3.fromRGB(15,20,40))
         grad.Rotation = 45
         grad.Parent = mainFrame
         
-        -- Corner
         local corner = Instance.new("UICorner")
         corner.CornerRadius = UDim.new(0, 18)
         corner.Parent = mainFrame
         
-        -- Stroke
         local stroke = Instance.new("UIStroke")
         stroke.Color = Color3.fromRGB(0,140,255)
         stroke.Thickness = 1.8
         stroke.Transparency = 0.2
         stroke.Parent = mainFrame
         
-        -- Title
         local title = Instance.new("TextLabel")
         title.Size = UDim2.new(1,0,0,50)
         title.BackgroundTransparency = 1
-        title.Text = "Pablo OP v6"
+        title.Text = "Pablo OP v7"
         title.TextColor3 = Color3.fromRGB(0,180,255)
         title.TextSize = 22
         title.Font = Enum.Font.GothamBold
         title.Parent = mainFrame
         
-        -- Minimize Button
         local minBtn = Instance.new("TextButton")
         minBtn.Size = UDim2.new(0,35,0,35)
         minBtn.Position = UDim2.new(1,-40,0,8)
@@ -159,7 +145,6 @@ local function createGUI()
         cornerMin.CornerRadius = UDim.new(0,16)
         cornerMin.Parent = minBtn
         
-        -- Stats
         statsLabel = Instance.new("TextLabel")
         statsLabel.Size = UDim2.new(1,-20,0,30)
         statsLabel.Position = UDim2.new(0,10,0,55)
@@ -170,7 +155,6 @@ local function createGUI()
         statsLabel.Font = Enum.Font.GothamMedium
         statsLabel.Parent = mainFrame
         
-        -- iPhone Toggle
         local function createToggle(name, yPos, label, desc)
             local frame = Instance.new("Frame")
             frame.Size = UDim2.new(1,-20,0,55)
@@ -232,13 +216,12 @@ local function createGUI()
             end)
         end
         
-        -- Add toggles
         createToggle("aura", 95, "Kill Aura", "Radius 80 - Instant kill")
         createToggle("farm", 155, "Auto Farm", "Fly + Prompts & Exits")
         createToggle("upgrades", 215, "Skill Upgrades", "Auto max upgrades")
         createToggle("speed", 275, "Speed", "Slider 0-100")
         
-        -- Speed Slider
+        -- Slider
         local sliderFrame = Instance.new("Frame")
         sliderFrame.Name = "Slider"
         sliderFrame.Size = UDim2.new(1,-20,0,35)
@@ -280,7 +263,6 @@ local function createGUI()
         num.Font = Enum.Font.GothamBold
         num.Parent = sliderFrame
         
-        -- Slider logic
         local dragging = false
         track.InputBegan:Connect(function(inp)
             if inp.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true end
@@ -298,7 +280,7 @@ local function createGUI()
             end
         end)
         
-        -- Drag GUI
+        -- Drag
         local drag = {dragging = false, start = nil, mouse = nil}
         title.InputBegan:Connect(function(inp)
             if inp.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -317,13 +299,13 @@ local function createGUI()
             if inp.UserInputType == Enum.UserInputType.MouseButton1 then drag.dragging = false end
         end)
         
-        -- Minimize
+        -- Minimize / Open
         minBtn.MouseButton1Click:Connect(function()
             panelVisible = not panelVisible
             mainFrame.Visible = panelVisible
         end)
         
-        -- F1 Toggle
+        -- F1
         uis.InputBegan:Connect(function(inp)
             if inp.KeyCode == Enum.KeyCode.F1 then
                 panelVisible = not panelVisible
@@ -333,15 +315,15 @@ local function createGUI()
         
         setZIndexRecursive(mainFrame, 9999)
         guiLoaded = true
-        safeLog("GUI loaded successfully - Press F1 to open")
+        safeLog("GUI v7 loaded - Press F1 or click ↕ to open/close")
     end)
     
     if not success then
-        safeLog("GUI creation failed: " .. err, true)
+        safeLog("GUI failed: " .. err, true)
     end
 end
 
--- Features (same as before, robust)
+-- Features (robust)
 local function killAura()
     if not toggles.aura then return end
     if not getCharSafe() then return end
@@ -371,7 +353,6 @@ local function farmAuto()
     if now - cooldowns.farm.global < configs.debounceFarm then return end
     cooldowns.farm.global = now
     
-    -- Prompts
     for _, p in pairs(workspace:GetDescendants()) do
         if p:IsA("ProximityPrompt") and p.Enabled then
             local pos = p.Parent.Position
@@ -384,7 +365,6 @@ local function farmAuto()
         end
     end
     
-    -- Exits
     for _, z in pairs(workspace:GetChildren()) do
         if z:FindFirstChild("ExitZone") or z.Name:lower():find("exit") or z.Name:lower():find("portal") then
             local pos = z:GetPivot().Position
@@ -426,7 +406,6 @@ local function applySpeed()
     humanoid.JumpPower = 50 + (bonus * 0.6)
 end
 
--- Clean UI (ultra seletivo)
 local function cleanUI()
     pcall(function()
         local gui = player.PlayerGui
@@ -438,7 +417,6 @@ local function cleanUI()
     end)
 end
 
--- Main Loop
 run.Heartbeat:Connect(function()
     if toggles.aura then pcall(killAura) end
     if toggles.farm then pcall(farmAuto) end
@@ -446,7 +424,6 @@ run.Heartbeat:Connect(function()
     if toggles.speed then pcall(applySpeed) end
 end)
 
--- Stats Update
 task.spawn(function()
     while task.wait(2) do
         if statsLabel then
@@ -455,16 +432,14 @@ task.spawn(function()
     end
 end)
 
--- Init
 task.spawn(function()
-    task.wait(2)  -- Delay para load completo do jogo
+    task.wait(2)
     createGUI()
     cleanUI()
     fullReset()
-    safeLog("Script v6 loaded - Press F1 to open the panel")
+    safeLog("v7 loaded - Press F1 or click ↕ to toggle panel")
 end)
 
--- Respawn
 player.CharacterAdded:Connect(function()
     task.wait(1.2)
     getCharSafe()
@@ -472,4 +447,4 @@ player.CharacterAdded:Connect(function()
     cleanUI()
 end)
 
-safeLog("v6 - Panel ready. Press F1 to open. If still not showing, check executor console for errors.")
+safeLog("v7 - Panel fixed: clickable, minimize/open with ↕ & F1. Test now!")
