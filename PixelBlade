@@ -1,14 +1,12 @@
--- UI
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 
 local Window = Rayfield:CreateWindow({
    Name = "Pablo OP - PixelBlade",
    LoadingTitle = "Carregando",
-   LoadingSubtitle = "Auto Farm Hover REAL",
+   LoadingSubtitle = "Auto Farm Eficiente",
    KeySystem = false
 })
 
--- SERVICES
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -22,7 +20,6 @@ local Character, Humanoid, RootPart
 local Remotes = ReplicatedStorage:WaitForChild("remotes")
 local onHitRemote = Remotes:WaitForChild("onHit")
 
--- VARIÁVEIS
 local AutoFarm = false
 local KillAura = false
 local FlyEnabled = false
@@ -30,23 +27,20 @@ local NoClipEnabled = false
 local InfiniteJump = false
 local MobESP = false
 local VisibleHitbox = false
-local Fullbright = false
 
-local AuraRange = 300
-local FlySpeed = 70
+local AuraRange = 350
+local FlySpeed = 80
 local WalkSpeedVal = 16
 local JumpPowerVal = 50
-local HoverHeight = 6
-local HitDelay = 0.25
+local HoverHeight = 12
+local HitDelay = 0.22
 
--- CONTROLES
 local BV, BG
 local AlignPos, AlignOri
 local NoClipConn
 local EspList, HitboxList = {}, {}
 local CurrentTarget = nil
 
--- UPDATE CHARACTER
 local function UpdateChar()
    Character = Player.Character or Player.CharacterAdded:Wait()
    Humanoid = Character:WaitForChild("Humanoid")
@@ -55,62 +49,70 @@ local function UpdateChar()
    Humanoid.WalkSpeed = WalkSpeedVal
    Humanoid.JumpPower = JumpPowerVal
 
-   -- desativa estados que causam pulo
-   for _, state in ipairs(Enum.HumanoidStateType:GetEnumItems()) do
-      Humanoid:SetStateEnabled(state, false)
+   for _, s in ipairs(Enum.HumanoidStateType:GetEnumItems()) do
+      Humanoid:SetStateEnabled(s, true)
    end
-   Humanoid:SetStateEnabled(Enum.HumanoidStateType.Physics, true)
-   Humanoid:ChangeState(Enum.HumanoidStateType.Physics)
 end
 
 UpdateChar()
 Player.CharacterAdded:Connect(UpdateChar)
 
--- GET ENEMIES
+local function IsValidEnemy(obj)
+   local hum = obj:FindFirstChild("Humanoid")
+   local hrp = obj:FindFirstChild("HumanoidRootPart")
+   if not hum or not hrp then return false end
+   if hum.Health <= 0 then return false end
+   if hum.MaxHealth <= 5 then return false end
+   if hrp.Anchored then return false end
+   if hrp.Size.Y < 3 then return false end
+   if Players:GetPlayerFromCharacter(obj) then return false end
+   return true
+end
+
 local function GetEnemies()
    local list = {}
    for _, obj in ipairs(Workspace:GetChildren()) do
-      local hum = obj:FindFirstChild("Humanoid")
-      local hrp = obj:FindFirstChild("HumanoidRootPart")
-      if hum and hrp and hum.Health > 0 and not Players:GetPlayerFromCharacter(obj) then
-         local dist = (RootPart.Position - hrp.Position).Magnitude
+      if IsValidEnemy(obj) then
+         local dist = (RootPart.Position - obj.HumanoidRootPart.Position).Magnitude
          if dist <= AuraRange then
-            table.insert(list, {hum = hum, hrp = hrp})
+            table.insert(list, {hum = obj.Humanoid, hrp = obj.HumanoidRootPart})
          end
       end
    end
    return list
 end
 
--- HOVER REAL (SEM SUBIR/DESCER)
 local function EnableHover(targetHRP)
-   if AlignPos then return end
-
    AlignPos = Instance.new("AlignPosition", RootPart)
    AlignPos.MaxForce = 1e9
-   AlignPos.Responsiveness = 200
+   AlignPos.Responsiveness = 300
 
    AlignOri = Instance.new("AlignOrientation", RootPart)
    AlignOri.MaxTorque = 1e9
-   AlignOri.Responsiveness = 200
+   AlignOri.Responsiveness = 300
 
-   local att0 = Instance.new("Attachment", RootPart)
-   local att1 = Instance.new("Attachment", targetHRP)
+   local a0 = Instance.new("Attachment", RootPart)
+   local a1 = Instance.new("Attachment", targetHRP)
 
-   AlignPos.Attachment0 = att0
-   AlignPos.Attachment1 = att1
+   AlignPos.Attachment0 = a0
+   AlignPos.Attachment1 = a1
    AlignPos.Position = Vector3.new(0, HoverHeight, 0)
 
-   AlignOri.Attachment0 = att0
-   AlignOri.Attachment1 = att1
+   AlignOri.Attachment0 = a0
+   AlignOri.Attachment1 = a1
 end
 
 local function DisableHover()
    if AlignPos then AlignPos:Destroy() AlignPos = nil end
    if AlignOri then AlignOri:Destroy() AlignOri = nil end
+   if Humanoid then
+      for _, s in ipairs(Enum.HumanoidStateType:GetEnumItems()) do
+         Humanoid:SetStateEnabled(s, true)
+      end
+      Humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+   end
 end
 
--- AUTO FARM PIXELBLADE (SEM IOIÔ)
 task.spawn(function()
    while task.wait(HitDelay) do
       if not AutoFarm then
@@ -128,13 +130,15 @@ task.spawn(function()
             CurrentTarget = target
          end
          onHitRemote:FireServer(target.hum, 9999999, {}, 0)
+      else
+         DisableHover()
+         CurrentTarget = nil
       end
    end
 end)
 
--- KILL AURA
 task.spawn(function()
-   while task.wait(0.4) do
+   while task.wait(0.35) do
       if KillAura then
          for _, e in ipairs(GetEnemies()) do
             onHitRemote:FireServer(e.hum, 9999999, {}, 0)
@@ -143,9 +147,7 @@ task.spawn(function()
    end
 end)
 
--- NOCLIP
 local function ToggleNoClip(state)
-   NoClipEnabled = state
    if NoClipConn then NoClipConn:Disconnect() end
    if state then
       NoClipConn = RunService.Stepped:Connect(function()
@@ -156,7 +158,6 @@ local function ToggleNoClip(state)
    end
 end
 
--- FLY MANUAL
 local function ToggleFly(state)
    FlyEnabled = state
    if not state then
@@ -188,59 +189,57 @@ local function ToggleFly(state)
    end)
 end
 
--- ESP
+UserInputService.JumpRequest:Connect(function()
+   if InfiniteJump then
+      Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+   end
+end)
+
 local function ToggleMobESP(state)
-   MobESP = state
    for _, e in ipairs(EspList) do e:Destroy() end
    EspList = {}
-
    if state then
       RunService.Heartbeat:Connect(function()
-         if not MobESP then return end
+         if not state then return end
          for _, obj in ipairs(Workspace:GetChildren()) do
-            local hum = obj:FindFirstChild("Humanoid")
-            if hum and hum.Health > 0 and not obj:FindFirstChild("ESP") then
-               local hl = Instance.new("Highlight")
-               hl.Name = "ESP"
-               hl.FillTransparency = 0.8
-               hl.OutlineColor = Color3.fromRGB(255,0,0)
-               hl.Parent = obj
-               table.insert(EspList, hl)
+            if IsValidEnemy(obj) and not obj:FindFirstChild("ESP") then
+               local h = Instance.new("Highlight")
+               h.Name = "ESP"
+               h.FillTransparency = 0.8
+               h.OutlineColor = Color3.fromRGB(255,0,0)
+               h.Parent = obj
+               table.insert(EspList, h)
             end
          end
       end)
    end
 end
 
--- HITBOX
 local function ToggleVisibleHitbox(state)
-   VisibleHitbox = state
    for _, h in ipairs(HitboxList) do h:Destroy() end
    HitboxList = {}
-
    if state then
       RunService.Heartbeat:Connect(function()
-         if not VisibleHitbox then return end
+         if not state then return end
          for _, obj in ipairs(Workspace:GetChildren()) do
-            local hrp = obj:FindFirstChild("HumanoidRootPart")
-            local hum = obj:FindFirstChild("Humanoid")
-            if hrp and hum and hum.Health > 0 and not hrp:FindFirstChild("Hitbox") then
-               local box = Instance.new("BoxHandleAdornment")
-               box.Name = "Hitbox"
-               box.Size = Vector3.new(4,6,4)
-               box.Color3 = Color3.fromRGB(255,0,0)
-               box.Transparency = 0.7
-               box.AlwaysOnTop = true
-               box.Adornee = hrp
-               box.Parent = hrp
-               table.insert(HitboxList, box)
+            if IsValidEnemy(obj) then
+               local hrp = obj.HumanoidRootPart
+               if not hrp:FindFirstChild("Hitbox") then
+                  local b = Instance.new("BoxHandleAdornment")
+                  b.Name = "Hitbox"
+                  b.Size = Vector3.new(4,6,4)
+                  b.Transparency = 0.7
+                  b.AlwaysOnTop = true
+                  b.Adornee = hrp
+                  b.Parent = hrp
+                  table.insert(HitboxList, b)
+               end
             end
          end
       end)
    end
 end
 
--- FULLBRIGHT
 local function ToggleFullbright(state)
    if state then
       Lighting.Brightness = 2
@@ -255,7 +254,6 @@ local function ToggleFullbright(state)
    end
 end
 
--- TABS
 local FarmTab = Window:CreateTab("Auto Farm")
 local MoveTab = Window:CreateTab("Movement")
 local VisualTab = Window:CreateTab("Visual")
@@ -277,6 +275,6 @@ VisualTab:CreateToggle({Name="Fullbright", Callback=ToggleFullbright})
 
 Rayfield:Notify({
    Title="Pablo OP",
-   Content="Auto Farm agora sobrevoa SEM subir/descer",
+   Content="Auto Farm otimizado contra armadilhas do Carmesin",
    Duration=6
 })
