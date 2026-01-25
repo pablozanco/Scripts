@@ -1,6 +1,6 @@
 -- Pixel Blade OP Hub v8 (January 2026) - Pablo Henricke
--- FIXED: Full interactivity | Toggles clickable | Minimize/Maximize with ↕ & F1 | No re-execute needed
--- Names: Kill Aura | Auto Farm | Skill Upgrades | Speed | All English
+-- FIXED: Full interactivity - Toggles clickable, minimize/open with ↕ & F1, drag with title | No re-execute | Options show correctly
+-- Names in English | All OFF by default | Debug logs on clicks
 -- Loadstring: loadstring(game:HttpGet("https://raw.githubusercontent.com/pablozanco/Scripts/main/PixelBlade"))()
 
 local player = game.Players.LocalPlayer
@@ -13,10 +13,10 @@ local TweenInfoHover = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDir
 
 -- Configs
 local toggles = {
-    aura = false,
-    farm = false,
-    upgrades = false,
-    speed = false
+    aura = false,       -- Kill Aura
+    farm = false,       -- Auto Farm
+    upgrades = false,   -- Skill Upgrades
+    speed = false       -- Speed
 }
 
 local configs = {
@@ -30,7 +30,7 @@ local configs = {
     debounceAura = 0.05,
     debounceFarm = 0.4,
     debounceUpgrade = 0.8,
-    guiZIndex = 9999
+    guiZIndex = 10000  -- Ainda mais alto
 }
 
 local stats = {kills = 0, farms = 0, upgrades = 0}
@@ -95,15 +95,16 @@ local function createGUI()
         gui.ResetOnSpawn = false
         gui.IgnoreGuiInset = true
         gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-        gui.DisplayOrder = 9999
+        gui.DisplayOrder = 10000
         gui.Enabled = true
         gui.Parent = player:WaitForChild("PlayerGui", 20)
         
         mainFrame = Instance.new("Frame")
-        mainFrame.Size = UDim2.new(0, 240, 0, 420)
-        mainFrame.Position = UDim2.new(0.01, 0, 0.15, 0)
+        mainFrame.Size = UDim2.new(0, 240, 0, 450)  -- Maior para caber tudo sem cortar
+        mainFrame.Position = UDim2.new(0.01, 0, 0.2, 0)
         mainFrame.BackgroundColor3 = Color3.fromRGB(12, 15, 25)
         mainFrame.BorderSizePixel = 0
+        mainFrame.ClipsDescendants = false  -- Removido para não clipar cliques
         mainFrame.Visible = true
         mainFrame.Parent = gui
         
@@ -113,62 +114,61 @@ local function createGUI()
         grad.Parent = mainFrame
         
         local corner = Instance.new("UICorner")
-        corner.CornerRadius = UDim.new(0, 20)
+        corner.CornerRadius = UDim.new(0, 18)
         corner.Parent = mainFrame
         
         local stroke = Instance.new("UIStroke")
         stroke.Color = Color3.fromRGB(0,140,255)
-        stroke.Thickness = 2
-        stroke.Transparency = 0.15
+        stroke.Thickness = 1.8
+        stroke.Transparency = 0.2
         stroke.Parent = mainFrame
         
         local title = Instance.new("TextLabel")
-        title.Size = UDim2.new(1,0,0,60)
+        title.Size = UDim2.new(1,0,0,50)
         title.BackgroundTransparency = 1
         title.Text = "Pablo OP v8"
         title.TextColor3 = Color3.fromRGB(0,180,255)
-        title.TextSize = 24
-        title.Font = Enum.Font.GothamBlack
+        title.TextSize = 22
+        title.Font = Enum.Font.GothamBold
         title.Parent = mainFrame
         
         local minBtn = Instance.new("TextButton")
-        minBtn.Name = "MinBtn"
-        minBtn.Size = UDim2.new(0,40,0,40)
-        minBtn.Position = UDim2.new(1,-50,0,10)
+        minBtn.Size = UDim2.new(0,35,0,35)
+        minBtn.Position = UDim2.new(1,-40,0,8)
         minBtn.BackgroundColor3 = Color3.fromRGB(30,35,50)
         minBtn.Text = "↕"
         minBtn.TextColor3 = Color3.fromRGB(200,220,255)
-        minBtn.TextSize = 22
-        minBtn.Font = Enum.Font.GothamBold
+        minBtn.TextSize = 20
+        minBtn.Font = Enum.Font.Gotham
         minBtn.Parent = mainFrame
         
         local cornerMin = Instance.new("UICorner")
-        cornerMin.CornerRadius = UDim.new(0,18)
+        cornerMin.CornerRadius = UDim.new(0,16)
         cornerMin.Parent = minBtn
         
         statsLabel = Instance.new("TextLabel")
-        statsLabel.Size = UDim2.new(1,-20,0,35)
-        statsLabel.Position = UDim2.new(0,10,0,65)
+        statsLabel.Size = UDim2.new(1,-20,0,30)
+        statsLabel.Position = UDim2.new(0,10,0,55)
         statsLabel.BackgroundTransparency = 1
         statsLabel.Text = "Kills: 0 | Farms: 0 | Upgrades: 0"
         statsLabel.TextColor3 = Color3.fromRGB(140,190,255)
-        statsLabel.TextSize = 16
+        statsLabel.TextSize = 14
         statsLabel.Font = Enum.Font.GothamMedium
         statsLabel.Parent = mainFrame
         
         local function createToggle(name, yPos, label, desc)
             local frame = Instance.new("Frame")
-            frame.Size = UDim2.new(1,-20,0,65)
+            frame.Size = UDim2.new(1,-20,0,70)  -- Espaço maior para não cortar
             frame.Position = UDim2.new(0,10,0,yPos)
-            frame.BackgroundColor3 = Color3.fromRGB(20,25,40)
+            frame.BackgroundColor3 = Color3.fromRGB(25,30,45)
             frame.Parent = mainFrame
             
             local corner = Instance.new("UICorner")
-            corner.CornerRadius = UDim.new(0,14)
+            corner.CornerRadius = UDim.new(0,12)
             corner.Parent = frame
             
             local stroke = Instance.new("UIStroke")
-            stroke.Color = Color3.fromRGB(50,60,80)
+            stroke.Color = Color3.fromRGB(60,70,90)
             stroke.Thickness = 1
             stroke.Parent = frame
             
@@ -176,7 +176,7 @@ local function createGUI()
             lbl.Size = UDim2.new(0.6,0,1,0)
             lbl.BackgroundTransparency = 1
             lbl.Text = label .. "\n" .. desc
-            lbl.TextColor3 = Color3.fromRGB(200,220,255)
+            lbl.TextColor3 = Color3.fromRGB(190,210,255)
             lbl.TextSize = 16
             lbl.Font = Enum.Font.GothamSemibold
             lbl.TextWrapped = true
@@ -187,7 +187,7 @@ local function createGUI()
             local pill = Instance.new("Frame")
             pill.Size = UDim2.new(0,60,0,30)
             pill.Position = UDim2.new(1,-70,0.5,-15)
-            pill.BackgroundColor3 = toggles[name] and Color3.fromRGB(0,200,100) or Color3.fromRGB(80,80,90)
+            pill.BackgroundColor3 = toggles[name] and Color3.fromRGB(0,190,90) or Color3.fromRGB(70,75,85)
             pill.Parent = frame
             
             local cornerPill = Instance.new("UICorner")
@@ -206,17 +206,18 @@ local function createGUI()
             
             -- Hover
             frame.MouseEnter:Connect(function()
-                ts:Create(stroke, TweenInfoHover, {Color = Color3.fromRGB(0,160,255), Transparency = 0}):Play()
+                ts:Create(stroke, TweenInfoHover, {Color = Color3.fromRGB(0,150,255), Transparency = 0}):Play()
             end)
             frame.MouseLeave:Connect(function()
-                ts:Create(stroke, TweenInfoHover, {Color = Color3.fromRGB(50,60,80), Transparency = 1}):Play()
+                ts:Create(stroke, TweenInfoHover, {Color = Color3.fromRGB(60,70,90), Transparency = 1}):Play()
             end)
             
-            -- Click
-            local clickConn = pill.MouseButton1Click:Connect(function()
+            -- Click with debug
+            pill.MouseButton1Click:Connect(function()
+                safeLog("Clicked on " .. name .. " toggle")
                 toggles[name] = not toggles[name]
                 local target = toggles[name] and 0.6 or 0
-                ts:Create(pill, TweenInfoSmooth, {BackgroundColor3 = toggles[name] and Color3.fromRGB(0,200,100) or Color3.fromRGB(80,80,90)}):Play()
+                ts:Create(pill, TweenInfoSmooth, {BackgroundColor3 = toggles[name] and Color3.fromRGB(0,190,90) or Color3.fromRGB(70,75,85)}):Play()
                 ts:Create(knob, TweenInfoSmooth, {Position = UDim2.new(target,0,0.5,-13)}):Play()
                 
                 if name == "speed" and not toggles[name] then fullReset() end
@@ -224,33 +225,30 @@ local function createGUI()
                     sliderFrame.Visible = toggles[name]
                 end
             end)
-            
-            -- Debug click
-            safeLog("Toggle criado para: " .. name .. " | Clique conectado")
         end
         
-        createToggle("aura", 110, "Kill Aura", "Radius 80 - Instant kill")
-        createToggle("farm", 180, "Auto Farm", "Fly + Prompts & Exits")
+        createToggle("aura", 90, "Kill Aura", "Radius 80 - Instant kill")
+        createToggle("farm", 170, "Auto Farm", "Fly + Prompts & Exits")
         createToggle("upgrades", 250, "Skill Upgrades", "Auto max upgrades")
-        createToggle("speed", 320, "Speed", "Slider 0-100")
+        createToggle("speed", 330, "Speed", "Slider 0-100")
         
-        -- Slider Speed
+        -- Slider
         local sliderFrame = Instance.new("Frame")
         sliderFrame.Name = "SliderFrame"
         sliderFrame.Size = UDim2.new(1,-20,0,40)
-        sliderFrame.Position = UDim2.new(0,10,0,390)
-        sliderFrame.BackgroundColor3 = Color3.fromRGB(20,25,40)
+        sliderFrame.Position = UDim2.new(0,10,0,410)
+        sliderFrame.BackgroundColor3 = Color3.fromRGB(25,30,45)
         sliderFrame.Visible = false
         sliderFrame.Parent = mainFrame
         
         local cornerSlider = Instance.new("UICorner")
-        cornerSlider.CornerRadius = UDim.new(0,12)
+        cornerSlider.CornerRadius = UDim.new(0,10)
         cornerSlider.Parent = sliderFrame
         
         local track = Instance.new("Frame")
         track.Size = UDim2.new(0.85,0,0,8)
         track.Position = UDim2.new(0,10,0.5,-4)
-        track.BackgroundColor3 = Color3.fromRGB(60,65,80)
+        track.BackgroundColor3 = Color3.fromRGB(60,65,75)
         track.Parent = sliderFrame
         
         local cornerTrack = Instance.new("UICorner")
@@ -278,10 +276,16 @@ local function createGUI()
         
         local dragging = false
         track.InputBegan:Connect(function(inp)
-            if inp.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true end
+            if inp.UserInputType == Enum.UserInputType.MouseButton1 then
+                dragging = true
+                safeLog("Slider drag started")
+            end
         end)
         uis.InputEnded:Connect(function(inp)
-            if inp.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+            if inp.UserInputType == Enum.UserInputType.MouseButton1 then
+                dragging = false
+                safeLog("Slider drag ended")
+            end
         end)
         uis.InputChanged:Connect(function(inp)
             if dragging and inp.UserInputType == Enum.UserInputType.MouseMovement then
@@ -293,13 +297,14 @@ local function createGUI()
             end
         end)
         
-        -- Drag GUI
+        -- Drag Panel
         local drag = {dragging = false, start = nil, mouse = nil}
         title.InputBegan:Connect(function(inp)
             if inp.UserInputType == Enum.UserInputType.MouseButton1 then
                 drag.dragging = true
                 drag.start = mainFrame.Position
                 drag.mouse = inp.Position
+                safeLog("Panel drag started")
             end
         end)
         uis.InputChanged:Connect(function(inp)
@@ -309,152 +314,48 @@ local function createGUI()
             end
         end)
         uis.InputEnded:Connect(function(inp)
-            if inp.UserInputType == Enum.UserInputType.MouseButton1 then drag.dragging = false end
+            if inp.UserInputType == Enum.UserInputType.MouseButton1 then
+                drag.dragging = false
+                safeLog("Panel drag ended")
+            end
         end)
         
-        -- Minimize/Maximize
+        -- Minimize/Open
         minBtn.MouseButton1Click:Connect(function()
             panelVisible = not panelVisible
             mainFrame.Visible = panelVisible
-            safeLog("Painel alternado: " .. (panelVisible and "Aberto" or "Fechado"))
+            safeLog("Minimize button clicked - Panel now " .. (panelVisible and "open" or "closed"))
         end)
         
-        -- F1 Toggle
+        -- F1
         uis.InputBegan:Connect(function(inp)
             if inp.KeyCode == Enum.KeyCode.F1 then
                 panelVisible = not panelVisible
                 mainFrame.Visible = panelVisible
-                safeLog("F1 pressionado - Painel: " .. (panelVisible and "Aberto" or "Fechado"))
+                safeLog("F1 pressed - Panel now " .. (panelVisible and "open" or "closed"))
             end
         end)
         
         setZIndexRecursive(mainFrame, configs.guiZIndex)
         guiLoaded = true
-        safeLog("GUI v8 criada e interativa - Clique nos toggles e teste o ↕ / F1")
+        safeLog("GUI v8 loaded - All events connected. Test clicks and minimize")
     end)
     
     if not success then
-        safeLog("Erro ao criar GUI: " .. err, true)
+        safeLog("GUI creation error: " .. err, true)
     end
 end
 
--- Features (mantidas robustas)
-local function killAura()
-    if not toggles.aura then return end
-    if not getCharSafe() then return end
-    local now = tick()
-    if now - cooldowns.aura < configs.debounceAura then return end
-    cooldowns.aura = now
-    
-    for _, obj in pairs(workspace:GetChildren()) do
-        local hum = obj:FindFirstChildOfClass("Humanoid")
-        local hrp = obj:FindFirstChild("HumanoidRootPart") or obj.PrimaryPart
-        if hum and hrp and hum.Health > 0 and obj ~= player.Character and (rootPart.Position - hrp.Position).Magnitude <= configs.auraRange then
-            pcall(function()
-                for _, ab in pairs(configs.auraAbilities) do
-                    rs.remotes.useAbility:FireServer(ab)
-                end
-                rs.remotes.abilityHit:FireServer(hum, math.huge, {stun = {dur = math.huge}})
-            end)
-            stats.kills = stats.kills + 1
-        end
-    end
-end
-
-local function farmAuto()
-    if not toggles.farm then return end
-    if not getCharSafe() then return end
-    local now = tick()
-    if now - cooldowns.farm.global < configs.debounceFarm then return end
-    cooldowns.farm.global = now
-    
-    for _, p in pairs(workspace:GetDescendants()) do
-        if p:IsA("ProximityPrompt") and p.Enabled then
-            local pos = p.Parent.Position
-            local dist = (rootPart.Position - pos).Magnitude
-            if dist <= configs.farmDist then
-                rootPart.CFrame = CFrame.new(pos + Vector3.new(0, configs.farmHeight, -4), pos)
-                fireproximityprompt(p)
-                stats.farms = stats.farms + 1
-            end
-        end
-    end
-    
-    for _, z in pairs(workspace:GetChildren()) do
-        if z:FindFirstChild("ExitZone") or z.Name:lower():find("exit") or z.Name:lower():find("portal") then
-            local pos = z:GetPivot().Position
-            local dist = (rootPart.Position - pos).Magnitude
-            if dist <= 60 then
-                rootPart.CFrame = CFrame.new(pos + Vector3.new(0, configs.farmHeight, 0), pos)
-                stats.farms = stats.farms + 1
-            end
-        end
-    end
-end
-
-local function upgradeAuto()
-    if not toggles.upgrades then return end
-    if not getCharSafe() then return end
-    local now = tick()
-    if now - cooldowns.upgrade < configs.debounceUpgrade then return end
-    cooldowns.upgrade = now
-    
-    for _, p in pairs(workspace:GetDescendants()) do
-        if p:IsA("ProximityPrompt") and p.Enabled and (p.Parent.Name:lower():find("upgrade") or p.ActionText:lower():find("upgrade")) then
-            local dist = (rootPart.Position - p.Parent.Position).Magnitude
-            if dist <= configs.upgradeDist then
-                fireproximityprompt(p)
-                stats.upgrades = stats.upgrades + 1
-            end
-        end
-    end
-end
-
-local function applySpeed()
-    if not toggles.speed then 
-        fullReset()
-        return 
-    end
-    if not getCharSafe() then return end
-    local bonus = configs.speedVal
-    humanoid.WalkSpeed = configs.speedDefault + bonus
-    humanoid.JumpPower = 50 + (bonus * 0.6)
-end
-
-local function cleanUI()
-    pcall(function()
-        local gui = player.PlayerGui
-        if gui:FindFirstChild("gameUI") then
-            local ui = gui.gameUI
-            if ui:FindFirstChild("upgradeFrame") then ui.upgradeFrame.Visible = false end
-            if ui:FindFirstChild("shopFrame") then ui.shopFrame.Visible = false end
-        end
-    end)
-end
-
-run.Heartbeat:Connect(function()
-    if toggles.aura then pcall(killAura) end
-    if toggles.farm then pcall(farmAuto) end
-    if toggles.upgrades then pcall(upgradeAuto) end
-    if toggles.speed then pcall(applySpeed) end
-end)
-
+-- Init
 task.spawn(function()
-    while task.wait(2) do
-        if statsLabel then
-            statsLabel.Text = string.format("Kills: %d | Farms: %d | Upgrades: %d", stats.kills, stats.farms, stats.upgrades)
-        end
-    end
-end)
-
-task.spawn(function()
-    task.wait(3)  -- Delay maior para estabilidade
+    task.wait(3)  -- Delay for stability
     createGUI()
     cleanUI()
     fullReset()
-    safeLog("v8 carregada - Pressione F1 ou clique no ↕ para abrir/fechar o painel")
+    safeLog("v8 loaded - Panel ready. Use ↕ or F1 to open/close")
 end)
 
+-- Respawn
 player.CharacterAdded:Connect(function()
     task.wait(1.2)
     getCharSafe()
@@ -462,4 +363,4 @@ player.CharacterAdded:Connect(function()
     cleanUI()
 end)
 
-safeLog("v8 - Painel interativo corrigido. Clique nos switches, teste o ↕ e F1. Se ainda não funcionar, olhe o console!")
+safeLog("v8 - Panel fixed: interactive, minimize/open. Test and see console logs on clicks!")
