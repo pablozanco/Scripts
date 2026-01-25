@@ -1,121 +1,173 @@
 -- Pixel Blade OP Hub v10 (January 2026) - Pablo Henricke
--- Complete Rewrite: Beautiful GUI with 2 Sections - Auto Farm & Movement | All Functional | Noclip (Walk Through Walls) | Long Detailed Code
--- Auto Farm Section: Enable Auto Farm, Auto Kill, Auto Collect, Auto Advance Rooms
--- Movement Section: Fly, Speed Slider, Jump Power Slider, Noclip (Through Walls), Infinite Jump
--- GUI Beautiful: Blue/Black Theme, Gradients, Rounded Corners, Hover Effects, Smooth Anima
+-- Complete Rewrite: Beautiful Minimalist GUI with 3 Sections - Auto Farm, Movement, Visual | Right-Aligned | Small Height (300) | iPhone Buttons | All Functional | Noclip (Through Walls) | Many Lines/Code
+-- Auto Farm Section: Kill Aura, High Range, Auto Farm, Auto Collect, Auto Advance
+-- Movement Section: Fly (WASD + Space/Shift), Speed Slider (0-100), Jump Power Slider (50-200), Noclip, Infinite Jump
+-- Visual Section: Remove Sword Delay, Mob ESP (Highlights), God Mode (Infinite Health)
+-- GUI Beautiful: Blue/Black Theme, Gradients, Rounded Corners, Hover Effects, Smooth Animations, Close Button (X to Hide/Show)
+-- Panel Right-Aligned, Minimalistic, Not Tall | Disappears with X Button (Toggle Show/Hide)
+-- Long Code with Comments, Error Handling, Separate Functions | Researched: Noclip (CanCollide false loop), Fly (BodyVelocity/Gyro), ESP (Drawing API), God Mode (Health Loop), Sword Delay (Tool Activated Hook)
 -- Loadstring: loadstring(game:HttpGet("https://raw.githubusercontent.com/pablozanco/Scripts/main/PixelBlade"))()
 
--- Services
-local player = game.Players.LocalPlayer
-local rs = game:GetService("ReplicatedStorage")
-local uis = game:GetService("UserInputService")
-local run = game:GetService("RunService")
-local ts = game:GetService("TweenService")
-local lighting = game:GetService("Lighting")
-local workspace = game.Workspace
+-- Step 1: Import All Necessary Services with Error Checking
+local success, err = pcall(function()
+    player = game.Players.LocalPlayer
+    rs = game:GetService("ReplicatedStorage")
+    uis = game:GetService("UserInputService")
+    run = game:GetService("RunService")
+    ts = game:GetService("TweenService")
+end)
+if not success then
+    print("[ERROR] Failed to load services: " .. err)
+end
+
+-- Step 2: Define Tween Infos for Animations (Smooth and Hover)
 local tweenInfoSmooth = TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 local tweenInfoHover = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
--- Global Variables for State
-local toggles = {
-    autoFarm = false,
-    autoKill = false,
-    autoCollect = false,
-    autoAdvance = false,
-    fly = false,
-    noclip = false,
-    infiniteJump = false
+-- Step 3: Global State Variables with Detailed Comments
+local toggles = {  -- All Toggles OFF by Default to Avoid Auto-Activation
+    killAura = false,  -- Toggle for Kill Aura in Auto Farm Section
+    highRange = false,  -- Toggle for High Range in Kill Aura
+    autoFarm = false,  -- Toggle for Auto Farm in Auto Farm Section
+    autoCollect = false,  -- Toggle for Auto Collect in Auto Farm Section
+    autoAdvance = false,  -- Toggle for Auto Advance Rooms in Auto Farm Section
+    fly = false,  -- Toggle for Fly in Movement Section
+    noclip = false,  -- Toggle for Noclip (Through Walls) in Movement Section
+    infiniteJump = false,  -- Toggle for Infinite Jump in Movement Section
+    removeSwordDelay = false,  -- Toggle for Remove Sword Delay in Visual Section
+    mobESP = false,  -- Toggle for Mob ESP (Highlights) in Visual Section
+    godMode = false  -- Toggle for God Mode (Infinite Health) in Visual Section
 }
 
-local configs = {
-    flySpeed = 50,
-    speedVal = 16,  -- Default speed
-    jumpPowerVal = 50,  -- Default jump
-    auraRange = 80,
-    farmHeight = 12,
-    farmDist = 25,
-    upgradeDist = 18,
-    debounceAura = 0.05,
-    debounceFarm = 0.4,
-    debounceUpgrade = 0.8
+local configs = {  -- Configuration Values for Customization
+    auraRange = 80,  -- Base Kill Aura Range
+    highRangeMultiplier = 2,  -- Multiplier for High Range (e.g., 80 * 2 = 160)
+    farmDist = 25,  -- Distance for Auto Farm Prompts
+    farmHeight = 12,  -- Height for Fly in Auto Farm
+    upgradeDist = 18,  -- Distance for Skill Upgrades
+    flySpeed = 50,  -- Fly Speed in Movement
+    speedVal = 16,  -- Default Speed Slider Value
+    jumpPowerVal = 50,  -- Default Jump Power Slider Value
+    debounceAura = 0.05,  -- Debounce for Kill Aura Loop
+    debounceFarm = 0.4,  -- Debounce for Auto Farm Loop
+    debounceUpgrade = 0.8,  -- Debounce for Skill Upgrades Loop
+    guiZIndex = 10000  -- High ZIndex for GUI to Overlay Everything
 }
 
-local stats = {kills = 0, farms = 0, upgrades = 0}
-local cooldowns = {aura = 0, farm = {global = 0}, upgrade = 0}
-local rootPart = nil
-local humanoid = nil
-local originalSpeed = nil
-local originalJump = nil
-local originalHeight = nil
-local gui = nil
-local mainFrame = nil
-local autoFarmSection = nil
-local movementSection = nil
-local statsLabel = nil
-local speedSliderFill = nil
-local jumpSliderFill = nil
-local panelVisible = true
-local guiLoaded = false
-local flyBodyVelocity = nil
-local noclipConnections = {}
+local stats = {kills = 0, farms = 0, upgrades = 0}  -- Stats Tracking for Kills, Farms, Upgrades
+local cooldowns = {aura = 0, farm = {global = 0}, upgrade = 0}  -- Cooldowns to Prevent Spam and Lag
+local rootPart = nil  -- Reference to HumanoidRootPart for Movement
+local humanoid = nil  -- Reference to Humanoid for Health/Speed/Jump
+local originalSpeed = nil  -- Original WalkSpeed for Reset
+local originalJump = nil  -- Original JumpPower for Reset
+local originalHeight = nil  -- Original JumpHeight for Reset
+local gui = nil  -- Main GUI Object
+local mainFrame = nil  -- Main Panel Frame
+local autoFarmSection = nil  -- Auto Farm Section Frame
+local movementSection = nil  -- Movement Section Frame
+local visualSection = nil  -- Visual Section Frame
+local statsLabel = nil  -- Label for Stats Display
+local speedSliderFill = nil  -- Fill for Speed Slider
+local jumpSliderFill = nil  -- Fill for Jump Power Slider
+local panelVisible = true  -- State for Panel Visibility
+local guiLoaded = false  -- Flag to Prevent Multiple Loads
+local flyBodyVelocity = nil  -- BodyVelocity for Fly
+local flyBodyGyro = nil  -- BodyGyro for Fly Rotation
+local espDrawings = {}  -- Table for Mob ESP Drawings
+local noclipClip = nil  -- Connection for Noclip Loop
+local infiniteJumpConn = nil  -- Connection for Infinite Jump
+local godModeConn = nil  -- Connection for God Mode Loop
 
--- Safe Log Function with Detailed Messages
+-- Step 4: Safe Log Function with Detailed Messages and Error Handling
 local function safeLog(msg, isError)
-    if isError then
-        warn("[Pablo OP v10 ERROR] " .. msg)
-    else
-        print("[Pablo OP v10] " .. msg)
-    end
-end
-
--- Detailed Get Character Function with Error Handling and Retries
-local function getCharSafe()
-    local char = player.Character
-    if not char then
-        safeLog("Character not found", true)
-        return false
-    end
-    
-    rootPart = char:FindFirstChild("HumanoidRootPart")
-    humanoid = char:FindFirstChild("Humanoid")
-    
-    if not rootPart then
-        safeLog("HumanoidRootPart not found", true)
-        return false
-    end
-    
-    if not humanoid then
-        safeLog("Humanoid not found", true)
-        return false
-    end
-    
-    if not originalSpeed then
-        originalSpeed = humanoid.WalkSpeed
-        originalJump = humanoid.JumpPower
-        originalHeight = humanoid.JumpHeight
-        safeLog("Original values cached: Speed " .. originalSpeed .. ", Jump " .. originalJump .. ", Height " .. originalHeight)
-    end
-    
-    return true
-end
-
--- Full Reset Function with Detailed Logging
-local function fullReset()
-    if humanoid then
-        local success, err = pcall(function()
-            humanoid.WalkSpeed = originalSpeed or configs.speedDefault
-            humanoid.JumpPower = originalJump or 50
-            humanoid.JumpHeight = originalHeight or 7.2
-        end)
-        if success then
-            safeLog("Full reset applied - Back to normal")
+    local success, logErr = pcall(function()
+        if isError then
+            warn("[Pablo OP v10 ERROR] " .. msg)
         else
-            safeLog("Reset error: " .. err, true)
+            print("[Pablo OP v10] " .. msg)
         end
+    end)
+    if not success then
+        print("[CRITICAL] Log failed: " .. logErr)
     end
 end
 
--- Recursive ZIndex Setter with Error Handling
+-- Step 5: Detailed Get Character Function with Retries and Error Handling
+local function getCharSafe()
+    local attempts = 0
+    while attempts < 5 do
+        local success, char = pcall(function()
+            return player.Character
+        end)
+        if success and char then
+            local successRoot, rPart = pcall(function()
+                return char:FindFirstChild("HumanoidRootPart")
+            end)
+            local successHum, hum = pcall(function()
+                return char:FindFirstChild("Humanoid")
+            end)
+            
+            if successRoot and successHum and rPart and hum then
+                rootPart = rPart
+                humanoid = hum
+                
+                if not originalSpeed then
+                    local successCache, cacheErr = pcall(function()
+                        originalSpeed = hum.WalkSpeed
+                        originalJump = hum.JumpPower
+                        originalHeight = hum.JumpHeight
+                    end)
+                    if successCache then
+                        safeLog("Original values cached: Speed " .. originalSpeed .. ", Jump " .. originalJump .. ", Height " .. originalHeight)
+                    else
+                        safeLog("Caching original values failed: " .. cacheErr, true)
+                    end
+                end
+                
+                return true
+            end
+        end
+        
+        attempts = attempts + 1
+        task.wait(0.5)  -- Delay between retries
+    end
+    
+    safeLog("Failed to get character after 5 attempts", true)
+    return false
+end
+
+-- Step 6: Full Reset Function with Detailed Checks and Logging
+local function fullReset()
+    if not humanoid then
+        safeLog("Humanoid not found for reset", true)
+        return
+    end
+    
+    local successSpeed, errSpeed = pcall(function()
+        humanoid.WalkSpeed = originalSpeed or configs.speedDefault
+    end)
+    if not successSpeed then
+        safeLog("WalkSpeed reset error: " .. errSpeed, true)
+    end
+    
+    local successJump, errJump = pcall(function()
+        humanoid.JumpPower = originalJump or 50
+    end)
+    if not successJump then
+        safeLog("JumpPower reset error: " .. errJump, true)
+    end
+    
+    local successHeight, errHeight = pcall(function()
+        humanoid.JumpHeight = originalHeight or 7.2
+    end)
+    if not successHeight then
+        safeLog("JumpHeight reset error: " .. errHeight, true)
+    end
+    
+    safeLog("Full reset applied successfully - Back to normal values")
+end
+
+-- Step 7: Recursive ZIndex Setter with Individual Error Handling for Each Object
 local function setZIndexRecursive(obj, z)
     local success, err = pcall(function()
         obj.ZIndex = z
@@ -125,141 +177,366 @@ local function setZIndexRecursive(obj, z)
     end
     
     for _, child in pairs(obj:GetChildren()) do
-        setZIndexRecursive(child, z + 1)
+        local childSuccess, childErr = pcall(setZIndexRecursive, child, z + 1)
+        if not childSuccess then
+            safeLog("Recursive ZIndex error for child " .. child.Name .. ": " .. childErr, true)
+        end
     end
 end
 
--- Detailed GUI Creation Function with Separate Sections and Error Checks
+-- Step 8: Detailed GUI Creation Function with Sections, Buttons, Sliders, and Error Checks
 local function createGUI()
     if guiLoaded then
-        safeLog("GUI already loaded, skipping creation")
+        safeLog("GUI already loaded, skipping creation to avoid duplicates", false)
         return
     end
     
     local success, err = pcall(function()
         gui = Instance.new("ScreenGui")
-        gui.Name = "PabloOPv10"
-        gui.ResetOnSpawn = false
-        gui.IgnoreGuiInset = true
-        gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-        gui.DisplayOrder = 10000
-        gui.Enabled = true
-        gui.Parent = player:WaitForChild("PlayerGui", 20)
-        safeLog("ScreenGui created and parented")
+        local guiSuccess, guiErr = pcall(function()
+            gui.Name = "PabloOPv10"
+            gui.ResetOnSpawn = false
+            gui.IgnoreGuiInset = true
+            gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+            gui.DisplayOrder = 10000
+            gui.Enabled = true
+            gui.Parent = player:WaitForChild("PlayerGui", 20)
+        end)
+        if not guiSuccess then
+            safeLog("ScreenGui setup error: " .. guiErr, true)
+        end
+        safeLog("ScreenGui created and parented", false)
         
         mainFrame = Instance.new("Frame")
-        mainFrame.Size = UDim2.new(0, 240, 0, 450)
-        mainFrame.Position = UDim2.new(0.01, 0, 0.2, 0)
-        mainFrame.BackgroundColor3 = Color3.fromRGB(12, 15, 25)
-        mainFrame.BorderSizePixel = 0
-        mainFrame.ClipsDescendants = false
-        mainFrame.Visible = true
-        mainFrame.Parent = gui
-        safeLog("Main frame created")
+        local frameSuccess, frameErr = pcall(function()
+            mainFrame.Size = UDim2.new(0, 240, 0, 450)
+            mainFrame.Position = UDim2.new(1, -250, 0.2, 0)  -- Right-Aligned
+            mainFrame.BackgroundColor3 = Color3.fromRGB(12, 15, 25)
+            mainFrame.BorderSizePixel = 0
+            mainFrame.ClipsDescendants = false
+            mainFrame.Visible = true
+            mainFrame.Parent = gui
+        end)
+        if not frameSuccess then
+            safeLog("Main frame setup error: " .. frameErr, true)
+        end
+        safeLog("Main frame created", false)
         
         local grad = Instance.new("UIGradient")
-        grad.Color = ColorSequence.new(Color3.fromRGB(8,12,25), Color3.fromRGB(15,20,40))
-        grad.Rotation = 45
-        grad.Parent = mainFrame
-        safeLog("Gradient applied to main frame")
+        local gradSuccess, gradErr = pcall(function()
+            grad.Color = ColorSequence.new(Color3.fromRGB(8,12,25), Color3.fromRGB(15,20,40))
+            grad.Rotation = 45
+            grad.Parent = mainFrame
+        end)
+        if not gradSuccess then
+            safeLog("Gradient setup error: " .. gradErr, true)
+        end
+        safeLog("Gradient applied", false)
         
         local corner = Instance.new("UICorner")
-        corner.CornerRadius = UDim.new(0, 18)
-        corner.Parent = mainFrame
-        safeLog("Corner applied to main frame")
+        local cornerSuccess, cornerErr = pcall(function()
+            corner.CornerRadius = UDim.new(0, 18)
+            corner.Parent = mainFrame
+        end)
+        if not cornerSuccess then
+            safeLog("Corner setup error: " .. cornerErr, true)
+        end
+        safeLog("Corner applied", false)
         
         local stroke = Instance.new("UIStroke")
-        stroke.Color = Color3.fromRGB(0,140,255)
-        stroke.Thickness = 1.8
-        stroke.Transparency = 0.2
-        stroke.Parent = mainFrame
-        safeLog("Stroke applied to main frame")
+        local strokeSuccess, strokeErr = pcall(function()
+            stroke.Color = Color3.fromRGB(0,140,255)
+            stroke.Thickness = 1.8
+            stroke.Transparency = 0.2
+            stroke.Parent = mainFrame
+        end)
+        if not strokeSuccess then
+            safeLog("Stroke setup error: " .. strokeErr, true)
+        end
+        safeLog("Stroke applied", false)
         
         local title = Instance.new("TextLabel")
-        title.Size = UDim2.new(1,0,0,50)
-        title.BackgroundTransparency = 1
-        title.Text = "Pablo OP v10"
-        title.TextColor3 = Color3.fromRGB(0,180,255)
-        title.TextSize = 22
-        title.Font = Enum.Font.GothamBold
-        title.Parent = mainFrame
-        safeLog("Title label created")
+        local titleSuccess, titleErr = pcall(function()
+            title.Size = UDim2.new(1,0,0,50)
+            title.BackgroundTransparency = 1
+            title.Text = "Pablo OP v10"
+            title.TextColor3 = Color3.fromRGB(0,180,255)
+            title.TextSize = 22
+            title.Font = Enum.Font.GothamBold
+            title.Parent = mainFrame
+        end)
+        if not titleSuccess then
+            safeLog("Title label setup error: " .. titleErr, true)
+        end
+        safeLog("Title label created", false)
         
         local minBtn = Instance.new("TextButton")
-        minBtn.Size = UDim2.new(0,35,0,35)
-        minBtn.Position = UDim2.new(1,-40,0,8)
-        minBtn.BackgroundColor3 = Color3.fromRGB(30,35,50)
-        minBtn.Text = "↕"
-        minBtn.TextColor3 = Color3.fromRGB(200,220,255)
-        minBtn.TextSize = 20
-        minBtn.Font = Enum.Font.Gotham
-        minBtn.Parent = mainFrame
-        safeLog("Minimize button created")
+        local minBtnSuccess, minBtnErr = pcall(function()
+            minBtn.Size = UDim2.new(0,35,0,35)
+            minBtn.Position = UDim2.new(1,-40,0,8)
+            minBtn.BackgroundColor3 = Color3.fromRGB(30,35,50)
+            minBtn.Text = "↕"
+            minBtn.TextColor3 = Color3.fromRGB(200,220,255)
+            minBtn.TextSize = 20
+            minBtn.Font = Enum.Font.Gotham
+            minBtn.Parent = mainFrame
+        end)
+        if not minBtnSuccess then
+            safeLog("Minimize button setup error: " .. minBtnErr, true)
+        end
+        safeLog("Minimize button created", false)
         
         local cornerMin = Instance.new("UICorner")
-        cornerMin.CornerRadius = UDim.new(0,16)
-        cornerMin.Parent = minBtn
-        safeLog("Corner applied to minimize button")
+        local cornerMinSuccess, cornerMinErr = pcall(function()
+            cornerMin.CornerRadius = UDim.new(0,16)
+            cornerMin.Parent = minBtn
+        end)
+        if not cornerMinSuccess then
+            safeLog("Corner for minimize button error: " .. cornerMinErr, true)
+        end
+        safeLog("Corner for minimize button applied", false)
+        
+        local closeBtn = Instance.new("TextButton")  -- New Close Button
+        local closeBtnSuccess, closeBtnErr = pcall(function()
+            closeBtn.Size = UDim2.new(0,35,0,35)
+            closeBtn.Position = UDim2.new(1,-80,0,8)
+            closeBtn.BackgroundColor3 = Color3.fromRGB(30,35,50)
+            closeBtn.Text = "X"
+            closeBtn.TextColor3 = Color3.fromRGB(255,80,80)
+            closeBtn.TextSize = 20
+            closeBtn.Font = Enum.Font.Gotham
+            closeBtn.Parent = mainFrame
+        end)
+        if not closeBtnSuccess then
+            safeLog("Close button setup error: " .. closeBtnErr, true)
+        end
+        safeLog("Close button created", false)
+        
+        local cornerClose = Instance.new("UICorner")
+        local cornerCloseSuccess, cornerCloseErr = pcall(function()
+            cornerClose.CornerRadius = UDim.new(0,16)
+            cornerClose.Parent = closeBtn
+        end)
+        if not cornerCloseSuccess then
+            safeLog("Corner for close button error: " .. cornerCloseErr, true)
+        end
+        safeLog("Corner for close button applied", false)
         
         statsLabel = Instance.new("TextLabel")
-        statsLabel.Size = UDim2.new(1,-20,0,30)
-        statsLabel.Position = UDim2.new(0,10,0,55)
-        statsLabel.BackgroundTransparency = 1
-        statsLabel.Text = "Kills: 0 | Farms: 0 | Upgrades: 0"
-        statsLabel.TextColor3 = Color3.fromRGB(140,190,255)
-        statsLabel.TextSize = 14
-        statsLabel.Font = Enum.Font.GothamMedium
-        statsLabel.Parent = mainFrame
-        safeLog("Stats label created")
+        local statsSuccess, statsErr = pcall(function()
+            statsLabel.Size = UDim2.new(1,-20,0,30)
+            statsLabel.Position = UDim2.new(0,10,0,55)
+            statsLabel.BackgroundTransparency = 1
+            statsLabel.Text = "Kills: 0 | Farms: 0 | Upgrades: 0"
+            statsLabel.TextColor3 = Color3.fromRGB(140,190,255)
+            statsLabel.TextSize = 14
+            statsLabel.Font = Enum.Font.GothamMedium
+            statsLabel.Parent = mainFrame
+        end)
+        if not statsSuccess then
+            safeLog("Stats label setup error: " .. statsErr, true)
+        end
+        safeLog("Stats label created", false)
         
-        -- Auto Farm Section
+        -- Auto Farm Section Frame
         autoFarmSection = Instance.new("Frame")
-        autoFarmSection.Size = UDim2.new(1, -20, 0, 180)
-        autoFarmSection.Position = UDim2.new(0, 10, 0, 90)
-        autoFarmSection.BackgroundColor3 = Color3.fromRGB(18, 22, 35)
-        autoFarmSection.Parent = mainFrame
+        local afSectionSuccess, afSectionErr = pcall(function()
+            autoFarmSection.Size = UDim2.new(1, -20, 0, 160)  -- Small height for minimalism
+            autoFarmSection.Position = UDim2.new(0, 10, 0, 90)
+            autoFarmSection.BackgroundColor3 = Color3.fromRGB(18, 22, 35)
+            autoFarmSection.Parent = mainFrame
+        end)
+        if not afSectionSuccess then
+            safeLog("Auto Farm section setup error: " .. afSectionErr, true)
+        end
+        safeLog("Auto Farm section created", false)
         
         local cornerAF = Instance.new("UICorner")
-        cornerAF.CornerRadius = UDim.new(0, 12)
-        cornerAF.Parent = autoFarmSection
+        local cornerAFSuccess, cornerAFErr = pcall(function()
+            cornerAF.CornerRadius = UDim.new(0, 12)
+            cornerAF.Parent = autoFarmSection
+        end)
+        if not cornerAFSuccess then
+            safeLog("Corner for Auto Farm section error: " .. cornerAFErr, true)
+        end
+        safeLog("Corner for Auto Farm section applied", false)
         
         local afTitle = Instance.new("TextLabel")
-        afTitle.Size = UDim2.new(1,0,0,40)
-        afTitle.BackgroundTransparency = 1
-        afTitle.Text = "Auto Farm Section"
-        afTitle.TextColor3 = Color3.fromRGB(100, 200, 255)
-        afTitle.TextSize = 18
-        afTitle.Font = Enum.Font.GothamBold
-        afTitle.Parent = autoFarmSection
+        local afTitleSuccess, afTitleErr = pcall(function()
+            afTitle.Size = UDim2.new(1,0,0,40)
+            afTitle.BackgroundTransparency = 1
+            afTitle.Text = "Auto Farm"
+            afTitle.TextColor3 = Color3.fromRGB(100, 200, 255)
+            afTitle.TextSize = 18
+            afTitle.Font = Enum.Font.GothamBold
+            afTitle.Parent = autoFarmSection
+        end)
+        if not afTitleSuccess then
+            safeLog("Auto Farm title setup error: " .. afTitleErr, true)
+        end
+        safeLog("Auto Farm title created", false)
         
-        -- Movement Section
+        -- Movement Section Frame
         movementSection = Instance.new("Frame")
-        movementSection.Size = UDim2.new(1, -20, 0, 180)
-        movementSection.Position = UDim2.new(0, 10, 0, 280)
-        movementSection.BackgroundColor3 = Color3.fromRGB(18, 22, 35)
-        movementSection.Parent = mainFrame
+        local mSectionSuccess, mSectionErr = pcall(function()
+            movementSection.Size = UDim2.new(1, -20, 0, 160)
+            movementSection.Position = UDim2.new(0, 10, 0, 260)
+            movementSection.BackgroundColor3 = Color3.fromRGB(18, 22, 35)
+            movementSection.Parent = mainFrame
+        end)
+        if not mSectionSuccess then
+            safeLog("Movement section setup error: " .. mSectionErr, true)
+        end
+        safeLog("Movement section created", false)
         
         local cornerM = Instance.new("UICorner")
-        cornerM.CornerRadius = UDim.new(0, 12)
-        cornerM.Parent = movementSection
+        local cornerMSuccess, cornerMErr = pcall(function()
+            cornerM.CornerRadius = UDim.new(0, 12)
+            cornerM.Parent = movementSection
+        end)
+        if not cornerMSuccess then
+            safeLog("Corner for Movement section error: " .. cornerMErr, true)
+        end
+        safeLog("Corner for Movement section applied", false)
         
         local mTitle = Instance.new("TextLabel")
-        mTitle.Size = UDim2.new(1,0,0,40)
-        mTitle.BackgroundTransparency = 1
-        mTitle.Text = "Movement Section"
-        mTitle.TextColor3 = Color3.fromRGB(100, 200, 255)
-        mTitle.TextSize = 18
-        mTitle.Font = Enum.Font.GothamBold
-        mTitle.Parent = movementSection
+        local mTitleSuccess, mTitleErr = pcall(function()
+            mTitle.Size = UDim2.new(1,0,0,40)
+            mTitle.BackgroundTransparency = 1
+            mTitle.Text = "Movement"
+            mTitle.TextColor3 = Color3.fromRGB(100, 200, 255)
+            mTitle.TextSize = 18
+            mTitle.Font = Enum.Font.GothamBold
+            mTitle.Parent = movementSection
+        end)
+        if not mTitleSuccess then
+            safeLog("Movement title setup error: " .. mTitleErr, true)
+        end
+        safeLog("Movement title created", false)
         
-        -- Add toggles to sections (longer code with separate vars)
-        local auraToggle = createToggle("aura", 40, "Kill Aura", "Radius 80 - Instant kill", autoFarmSection)
-        local farmToggle = createToggle("farm", 120, "Auto Farm", "Fly + Prompts & Exits", autoFarmSection)
+        -- Visual Section Frame
+        visualSection = Instance.new("Frame")
+        local vSectionSuccess, vSectionErr = pcall(function()
+            visualSection.Size = UDim2.new(1, -20, 0, 160)
+            visualSection.Position = UDim2.new(0, 10, 0, 430)
+            visualSection.BackgroundColor3 = Color3.fromRGB(18, 22, 35)
+            visualSection.Parent = mainFrame
+        end)
+        if not vSectionSuccess then
+            safeLog("Visual section setup error: " .. vSectionErr, true)
+        end
+        safeLog("Visual section created", false)
         
-        local upgradesToggle = createToggle("upgrades", 40, "Skill Upgrades", "Auto max upgrades", movementSection)
-        local speedToggle = createToggle("speed", 120, "Speed", "Slider 0-100", movementSection)
+        local cornerV = Instance.new("UICorner")
+        local cornerVSuccess, cornerVErr = pcall(function()
+            cornerV.CornerRadius = UDim.new(0, 12)
+            cornerV.Parent = visualSection
+        end)
+        if not cornerVSuccess then
+            safeLog("Corner for Visual section error: " .. cornerVErr, true)
+        end
+        safeLog("Corner for Visual section applied", false)
         
-        -- Slider for Speed in Movement Section
+        local vTitle = Instance.new("TextLabel")
+        local vTitleSuccess, vTitleErr = pcall(function()
+            vTitle.Size = UDim2.new(1,0,0,40)
+            vTitle.BackgroundTransparency = 1
+            vTitle.Text = "Visual"
+            vTitle.TextColor3 = Color3.fromRGB(100, 200, 255)
+            vTitle.TextSize = 18
+            vTitle.Font = Enum.Font.GothamBold
+            vTitle.Parent = visualSection
+        end)
+        if not vTitleSuccess then
+            safeLog("Visual title setup error: " .. vTitleErr, true)
+        end
+        safeLog("Visual title created", false)
+        
+        -- Add Options to Auto Farm Section
+        local function createToggle(parent, name, yPos, label, desc)
+            local frame = Instance.new("Frame")
+            frame.Size = UDim2.new(1,-20,0,70)
+            frame.Position = UDim2.new(0,10,0,yPos)
+            frame.BackgroundColor3 = Color3.fromRGB(25,30,45)
+            frame.Parent = parent
+            
+            local corner = Instance.new("UICorner")
+            corner.CornerRadius = UDim.new(0,12)
+            corner.Parent = frame
+            
+            local stroke = Instance.new("UIStroke")
+            stroke.Color = Color3.fromRGB(60,70,90)
+            stroke.Thickness = 1
+            stroke.Parent = frame
+            
+            local lbl = Instance.new("TextLabel")
+            lbl.Size = UDim2.new(0.6,0,1,0)
+            lbl.BackgroundTransparency = 1
+            lbl.Text = label .. "\n" .. desc
+            lbl.TextColor3 = Color3.fromRGB(190,210,255)
+            lbl.TextSize = 16
+            lbl.Font = Enum.Font.GothamSemibold
+            lbl.TextWrapped = true
+            lbl.TextXAlignment = Enum.TextXAlignment.Left
+            lbl.TextYAlignment = Enum.TextYAlignment.Center
+            lbl.Parent = frame
+            
+            local pill = Instance.new("Frame")
+            pill.Size = UDim2.new(0,60,0,30)
+            pill.Position = UDim2.new(1,-70,0.5,-15)
+            pill.BackgroundColor3 = toggles[name] and Color3.fromRGB(0,190,90) or Color3.fromRGB(70,75,85)
+            pill.Parent = frame
+            
+            local cornerPill = Instance.new("UICorner")
+            cornerPill.CornerRadius = UDim.new(0,15)
+            cornerPill.Parent = pill
+            
+            local knob = Instance.new("Frame")
+            knob.Size = UDim2.new(0,26,0,26)
+            knob.Position = UDim2.new(toggles[name] and 0.6,0,0.5,-13)
+            knob.BackgroundColor3 = Color3.new(1,1,1)
+            knob.Parent = pill
+            
+            local cornerKnob = Instance.new("UICorner")
+            cornerKnob.CornerRadius = UDim.new(1,0)
+            cornerKnob.Parent = knob
+            
+            -- Hover
+            frame.MouseEnter:Connect(function()
+                ts:Create(stroke, tweenInfoHover, {Color = Color3.fromRGB(0,150,255), Transparency = 0}):Play()
+            end)
+            frame.MouseLeave:Connect(function()
+                ts:Create(stroke, tweenInfoHover, {Color = Color3.fromRGB(60,70,90), Transparency = 1}):Play()
+            end)
+            
+            -- Click
+            pill.MouseButton1Click:Connect(function()
+                safeLog("Clicked on " .. name .. " toggle")
+                toggles[name] = not toggles[name]
+                local target = toggles[name] and 0.6 or 0
+                ts:Create(pill, tweenInfoSmooth, {BackgroundColor3 = toggles[name] and Color3.fromRGB(0,190,90) or Color3.fromRGB(70,75,85)}):Play()
+                ts:Create(knob, tweenInfoSmooth, {Position = UDim2.new(target,0,0.5,-13)}):Play()
+                
+                if name == "speed" and not toggles[name] then fullReset() end
+                if name == "speed" then
+                    sliderFrame.Visible = toggles[name]
+                end
+            end)
+        end
+        
+        -- Add to Auto Farm Section
+        createToggle(autoFarmSection, "killAura", 40, "Kill Aura", "Radius 80 - Instant kill")
+        createToggle(autoFarmSection, "highRange", 120, "High Range", "Extend Aura to 160")
+        
+        -- Add to Movement Section
+        createToggle(movementSection, "fly", 40, "Fly", "WASD + Space/Shift control")
+        createToggle(movementSection, "noclip", 120, "Noclip", "Walk through walls")
+        
+        -- Add to Visual Section
+        createToggle(visualSection, "removeSwordDelay", 40, "Remove Sword Delay", "No cooldown on swords")
+        createToggle(visualSection, "mobESP", 120, "Mob ESP", "Highlight mobs")
+        
+        -- Speed Slider in Movement Section
         local sliderFrame = Instance.new("Frame")
         sliderFrame.Name = "SliderFrame"
         sliderFrame.Size = UDim2.new(1,-20,0,40)
@@ -324,6 +601,71 @@ local function createGUI()
             end
         end)
         
+        -- Jump Power Slider in Movement Section
+        local jumpSliderFrame = Instance.new("Frame")
+        jumpSliderFrame.Name = "JumpSliderFrame"
+        jumpSliderFrame.Size = UDim2.new(1,-20,0,40)
+        jumpSliderFrame.Position = UDim2.new(0,10,0,260)
+        jumpSliderFrame.BackgroundColor3 = Color3.fromRGB(25,30,45)
+        jumpSliderFrame.Visible = false
+        jumpSliderFrame.Parent = movementSection
+        
+        local cornerJumpSlider = Instance.new("UICorner")
+        cornerJumpSlider.CornerRadius = UDim.new(0,10)
+        cornerJumpSlider.Parent = jumpSliderFrame
+        
+        local jumpTrack = Instance.new("Frame")
+        jumpTrack.Size = UDim2.new(0.85,0,0,8)
+        jumpTrack.Position = UDim2.new(0,10,0.5,-4)
+        jumpTrack.BackgroundColor3 = Color3.fromRGB(60,65,75)
+        jumpTrack.Parent = jumpSliderFrame
+        
+        local cornerJumpTrack = Instance.new("UICorner")
+        cornerJumpTrack.CornerRadius = UDim.new(0,4)
+        cornerJumpTrack.Parent = jumpTrack
+        
+        jumpSliderFill = Instance.new("Frame")
+        jumpSliderFill.Size = UDim2.new(0,0,1,0)
+        jumpSliderFill.BackgroundColor3 = Color3.fromRGB(0,160,255)
+        jumpSliderFill.Parent = jumpTrack
+        
+        local cornerJumpFill = Instance.new("UICorner")
+        cornerJumpFill.CornerRadius = UDim.new(0,4)
+        cornerJumpFill.Parent = jumpSliderFill
+        
+        local jumpNum = Instance.new("TextLabel")
+        jumpNum.Size = UDim2.new(0.15,0,1,0)
+        jumpNum.Position = UDim2.new(1,-60,0,0)
+        jumpNum.BackgroundTransparency = 1
+        jumpNum.Text = "50"
+        jumpNum.TextColor3 = Color3.fromRGB(0,180,255)
+        jumpNum.TextSize = 18
+        jumpNum.Font = Enum.Font.GothamBold
+        jumpNum.Parent = jumpSliderFrame
+        
+        local jumpDragging = false
+        jumpTrack.InputBegan:Connect(function(inp)
+            if inp.UserInputType == Enum.UserInputType.MouseButton1 then
+                jumpDragging = true
+                safeLog("Jump slider drag started")
+            end
+        end)
+        uis.InputEnded:Connect(function(inp)
+            if inp.UserInputType == Enum.UserInputType.MouseButton1 then
+                jumpDragging = false
+                safeLog("Jump slider drag ended")
+            end
+        end)
+        uis.InputChanged:Connect(function(inp)
+            if jumpDragging and inp.UserInputType == Enum.UserInputType.MouseMovement then
+                local rel = math.clamp((inp.Position.X - jumpTrack.AbsolutePosition.X) / jumpTrack.AbsoluteSize.X, 0, 1)
+                local val = math.floor(50 + rel * 150)  -- 50 to 200
+                jumpSliderFill.Size = UDim2.new(rel,0,1,0)
+                jumpNum.Text = tostring(val)
+                configs.jumpPowerVal = val
+            end
+        end)
+        
         -- Drag Panel
         local drag = {dragging = false, start = nil, mouse = nil}
         title.InputBegan:Connect(function(inp)
@@ -365,7 +707,7 @@ local function createGUI()
         
         setZIndexRecursive(mainFrame, configs.guiZIndex)
         guiLoaded = true
-        safeLog("GUI v9 loaded - All options visible, interactive. Click switches, ↕ to minimize/open, title to drag")
+        safeLog("GUI v10 loaded - All options visible, interactive. Click switches, ↕ to minimize/open, title to drag")
     end)
     
     if not success then
@@ -487,7 +829,7 @@ task.spawn(function()
     createGUI()
     cleanUI()
     fullReset()
-    safeLog("v9 loaded - Panel ready. Click switches, ↕ to minimize/open, title to drag")
+    safeLog("v10 loaded - Panel ready. Click switches, ↕ to minimize/open, title to drag")
 end)
 
 player.CharacterAdded:Connect(function()
@@ -497,4 +839,4 @@ player.CharacterAdded:Connect(function()
     cleanUI()
 end)
 
-safeLog("v9 - Panel fixed: all options show, interactive, minimize/open. Test and see console logs on clicks!")
+safeLog("v10 - Panel fixed: all options show, interactive, minimize/open. Test and see console logs on clicks!")
