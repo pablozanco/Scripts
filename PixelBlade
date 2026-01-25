@@ -37,33 +37,46 @@ local AuraRange = 300
 local FlySpeed = 50
 local WalkSpeedVal = 16
 local JumpPowerVal = 50
-local FarmHeightOffset = 25
+local FarmHeightOffset = 40
 
-local BV, FlyConn, NoClipConn, EspHighlights, HitboxParts = nil, nil, nil, {}, {}
+local BV, FlyConn, NoClipConn
+local EspHighlights = {}
+local HitboxParts = {}
 
-Player.CharacterAdded:Connect(function(newChar)
-   Character = newChar
-   Humanoid = newChar:WaitForChild("Humanoid")
-   RootPart = newChar:WaitForChild("HumanoidRootPart")
+local function UpdateCharacter(char)
+   Character = char
+   Humanoid = char:WaitForChild("Humanoid")
+   RootPart = char:WaitForChild("HumanoidRootPart")
    Humanoid.WalkSpeed = WalkSpeedVal
    Humanoid.JumpPower = JumpPowerVal
-end)
+end
+
+Player.CharacterAdded:Connect(UpdateCharacter)
+
+local function IsValidEnemy(obj)
+   if Players:GetPlayerFromCharacter(obj) then return false end
+   local hum = obj:FindFirstChild("Humanoid")
+   local hrp = obj:FindFirstChild("HumanoidRootPart")
+   if not hum or not hrp then return false end
+   if hum.Health <= 0 then return false end
+   if hum.MaxHealth <= 5 then return false end
+   if hrp.Position.Y < 5 then return false end
+   return true
+end
 
 local function GetEnemies()
    local enemies = {}
+   if not RootPart then return enemies end
    local rootPos = RootPart.Position
    local count = 0
    for _, obj in ipairs(Workspace:GetChildren()) do
       if count >= 30 then break end
-      local hum = obj:FindFirstChild("Humanoid")
-      if hum and hum.Health > 0 and hum.MaxHealth > 1 then
-         local hrp = obj:FindFirstChild("HumanoidRootPart")
-         if hrp and obj ~= Character and not Players:GetPlayerFromCharacter(obj) then
-            local dist = (rootPos - hrp.Position).Magnitude
-            if dist <= AuraRange then
-               enemies[#enemies + 1] = {hrp = hrp, hum = hum}
-               count += 1
-            end
+      if IsValidEnemy(obj) then
+         local hrp = obj.HumanoidRootPart
+         local dist = (rootPos - hrp.Position).Magnitude
+         if dist <= AuraRange then
+            table.insert(enemies, {hrp = hrp, hum = obj.Humanoid})
+            count += 1
          end
       end
    end
@@ -77,7 +90,9 @@ local function ToggleNoClip(state)
       NoClipConn = RunService.Stepped:Connect(function()
          if Character then
             for _, part in ipairs(Character:GetDescendants()) do
-               if part:IsA("BasePart") then part.CanCollide = false end
+               if part:IsA("BasePart") then
+                  part.CanCollide = false
+               end
             end
          end
       end)
@@ -87,43 +102,35 @@ end
 local function ToggleFly(state)
    FlyEnabled = state
    if BV then BV:Destroy() BV = nil end
+   if FlyConn then FlyConn:Disconnect() FlyConn = nil end
    if state and RootPart then
       BV = Instance.new("BodyVelocity")
       BV.MaxForce = Vector3.new(1e9,1e9,1e9)
-      BV.Velocity = Vector3.new(0,0,0)
       BV.Parent = RootPart
       FlyConn = RunService.Heartbeat:Connect(function()
-         if not FlyEnabled then
-            FlyConn:Disconnect()
-            FlyConn = nil
-            BV:Destroy()
-            BV = nil
-            return
-         end
-         local cam = workspace.CurrentCamera
-         local move = Vector3.new()
-         if UserInputService:IsKeyDown(Enum.KeyCode.W) then move += cam.CFrame.LookVector end
-         if UserInputService:IsKeyDown(Enum.KeyCode.S) then move -= cam.CFrame.LookVector end
-         if UserInputService:IsKeyDown(Enum.KeyCode.A) then move -= cam.CFrame.RightVector end
-         if UserInputService:IsKeyDown(Enum.KeyCode.D) then move += cam.CFrame.RightVector end
-         if UserInputService:IsKeyDown(Enum.KeyCode.Space) then move += Vector3.new(0,1,0) end
-         BV.Velocity = move * FlySpeed
+         if not FlyEnabled or not RootPart then return end
+         BV.Velocity = Vector3.new(0,0,0)
       end)
+   else
+      if Humanoid then
+         Humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+      end
    end
 end
 
 UserInputService.JumpRequest:Connect(function()
    if InfiniteJump and Humanoid then
-      Humanoid:ChangeState("Jumping")
+      Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
    end
 end)
 
 RunService.Heartbeat:Connect(function()
+   if not Character or not RootPart then return end
    local enemies = GetEnemies()
 
    if KillAura then
       for _, data in ipairs(enemies) do
-         onHitRemote:FireServer(data.hum, 9999999999, {}, 0)
+         onHitRemote:FireServer(data.hum, 9e9, {}, 0)
       end
    end
 
@@ -131,14 +138,17 @@ RunService.Heartbeat:Connect(function()
       if #enemies > 0 then
          local closest = enemies[1]
          for _, e in ipairs(enemies) do
-            if (RootPart.Position - e.hrp.Position).Magnitude < (RootPart.Position - closest.hrp.Position).Magnitude then
+            if (RootPart.Position - e.hrp.Position).Magnitude <
+               (RootPart.Position - closest.hrp.Position).Magnitude then
                closest = e
             end
          end
-         RootPart.CFrame = closest.hrp.CFrame * CFrame.new(0, FarmHeightOffset, 0)
-         for _, data in ipairs(enemies) do
-            onHitRemote:FireServer(data.hum, 9999999999, {}, 0)
-         end
+         RootPart.CFrame = CFrame.new(
+            closest.hrp.Position.X,
+            closest.hrp.Position.Y + FarmHeightOffset,
+            closest.hrp.Position.Z
+         )
+         onHitRemote:FireServer(closest.hum, 9e9, {}, 0)
       else
          for _, p in ipairs(Workspace:GetDescendants()) do
             if p:IsA("ProximityPrompt") and p.Enabled then
@@ -152,92 +162,35 @@ RunService.Heartbeat:Connect(function()
    end
 end)
 
-local function ToggleMobESP(state)
-   MobESP = state
-   for _, hl in ipairs(EspHighlights) do hl:Destroy() end
-   EspHighlights = {}
-   if state then
-      local conn = RunService.Heartbeat:Connect(function()
-         if not MobESP then conn:Disconnect() return end
-         for _, obj in ipairs(Workspace:GetChildren()) do
-            local hum = obj:FindFirstChild("Humanoid")
-            if hum and hum.Health > 0 and obj ~= Character and not obj:FindFirstChild("ESPHighlight") then
-               local highlight = Instance.new("Highlight")
-               highlight.Name = "ESPHighlight"
-               highlight.FillTransparency = 0.8
-               highlight.OutlineTransparency = 0
-               highlight.OutlineColor = Color3.fromRGB(255,0,0)
-               highlight.Parent = obj
-               EspHighlights[#EspHighlights+1] = highlight
-            end
-         end
-      end)
-   end
-end
-
-local function ToggleVisibleHitbox(state)
-   VisibleHitbox = state
-   for _, bx in ipairs(HitboxParts) do bx:Destroy() end
-   HitboxParts = {}
-   if state then
-      local conn = RunService.Heartbeat:Connect(function()
-         if not VisibleHitbox then conn:Disconnect() return end
-         local size = AuraRange / 20
-         for _, obj in ipairs(Workspace:GetChildren()) do
-            local hum = obj:FindFirstChild("Humanoid")
-            local hrp = obj:FindFirstChild("HumanoidRootPart")
-            if hum and hum.Health > 0 and obj ~= Character and not obj:FindFirstChild("HitboxVisual") then
-               local box = Instance.new("BoxHandleAdornment")
-               box.Name = "HitboxVisual"
-               box.Size = Vector3.new(size, size * 1.5, size)
-               box.Transparency = 0.7
-               box.Color3 = Color3.fromRGB(255,0,0)
-               box.AlwaysOnTop = true
-               box.Adornee = hrp
-               box.Parent = hrp
-               HitboxParts[#HitboxParts+1] = box
-            end
-         end
-      end)
-   end
-end
-
-local function ToggleFullbright(state)
-   Fullbright = state
-   if state then
-      Lighting.Brightness = 2
-      Lighting.ClockTime = 14
-      Lighting.FogEnd = 1e9
-      Lighting.GlobalShadows = false
-   else
-      Lighting.Brightness = 1
-      Lighting.ClockTime = 0
-      Lighting.FogEnd = 100
-      Lighting.GlobalShadows = true
-   end
-end
-
 local FarmTab = Window:CreateTab("Auto Farm")
 local MoveTab = Window:CreateTab("Movement")
 local VisualTab = Window:CreateTab("Visual")
 
-FarmTab:CreateToggle({Name = "Kill Aura", CurrentValue = false, Callback = function(v) KillAura = v end})
-FarmTab:CreateToggle({Name = "Auto Farm", CurrentValue = false, Callback = function(v) AutoFarm = v end})
+FarmTab:CreateToggle({Name="Kill Aura",CurrentValue=false,Callback=function(v)KillAura=v end})
+FarmTab:CreateToggle({Name="Auto Farm",CurrentValue=false,Callback=function(v)AutoFarm=v end})
 
-MoveTab:CreateToggle({Name = "Fly", CurrentValue = false, Callback = function(v) ToggleFly(v) end})
-MoveTab:CreateToggle({Name = "Noclip", CurrentValue = false, Callback = function(v) ToggleNoClip(v) end})
-MoveTab:CreateToggle({Name = "Infinite Jump", CurrentValue = false, Callback = function(v) InfiniteJump = v end})
-MoveTab:CreateSlider({Name = "Walk Speed", Range = {16, 200}, Increment = 5, CurrentValue = 16, Callback = function(v) WalkSpeedVal = v end})
-MoveTab:CreateSlider({Name = "Jump Power", Range = {50, 300}, Increment = 10, CurrentValue = 50, Callback = function(v) JumpPowerVal = v end})
+MoveTab:CreateToggle({Name="Fly",CurrentValue=false,Callback=function(v)ToggleFly(v)end})
+MoveTab:CreateToggle({Name="Noclip",CurrentValue=false,Callback=function(v)ToggleNoClip(v)end})
+MoveTab:CreateToggle({Name="Infinite Jump",CurrentValue=false,Callback=function(v)InfiniteJump=v end})
+MoveTab:CreateSlider({Name="Walk Speed",Range={16,200},Increment=5,CurrentValue=16,Callback=function(v)WalkSpeedVal=v Humanoid.WalkSpeed=v end})
+MoveTab:CreateSlider({Name="Jump Power",Range={50,300},Increment=10,CurrentValue=50,Callback=function(v)JumpPowerVal=v Humanoid.JumpPower=v end})
 
-VisualTab:CreateToggle({Name = "Mob ESP", CurrentValue = false, Callback = function(v) ToggleMobESP(v) end})
-VisualTab:CreateToggle({Name = "Visible Hitbox on Mobs", CurrentValue = false, Callback = function(v) ToggleVisibleHitbox(v) end})
-VisualTab:CreateToggle({Name = "Fullbright", CurrentValue = false, Callback = function(v) ToggleFullbright(v) end})
+VisualTab:CreateToggle({Name="Fullbright",CurrentValue=false,Callback=function(v)
+   Fullbright=v
+   if v then
+      Lighting.Brightness=2
+      Lighting.ClockTime=14
+      Lighting.FogEnd=1e9
+      Lighting.GlobalShadows=false
+   else
+      Lighting.GlobalShadows=true
+   end
+end})
 
 Rayfield:Notify({
    Title = "Pablo OP",
-   Content = "Auto Farm corrigido para PixelBlade",
+   Content = "Auto Farm estabilizado para PixelBlade",
    Duration = 6
 })
 
-print("Pablo OP - Funcionando")
+print("Pablo OP - Script completo carregado")
