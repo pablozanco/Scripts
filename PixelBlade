@@ -43,8 +43,6 @@ local WalkSpeedVal = 16  -- Default normal
 local JumpPowerVal = 50  -- Default normal
 local BV, FlyConn, NoClipConn, EspHighlights = nil, nil, nil, {}
 
-local EspColor = Color3.fromRGB(255, 0, 0)  -- Default red
-
 -- Atualiza Character
 local function UpdateChar()
    Character = Player.Character
@@ -217,13 +215,6 @@ local function ToggleFullbright(state)
    end
 end
 
--- Rejoin Button (reset to same world)
-local function Rejoin()
-   local placeId = game.PlaceId
-   local jobId = game.JobId
-   TeleportService:TeleportToPlaceInstance(placeId, jobId, Player)
-end
-
 -- Tabs
 local FarmTab = Window:CreateTab("Auto Farm")
 local MoveTab = Window:CreateTab("Movement")
@@ -232,7 +223,9 @@ local VisualTab = Window:CreateTab("Visual")
 -- Auto Farm
 FarmTab:CreateToggle({Name = "Kill Aura", CurrentValue = false, Callback = function(v) KillAura = v end})
 FarmTab:CreateToggle({Name = "Auto Farm", CurrentValue = false, Callback = function(v) AutoFarm = v end})
-FarmTab:CreateSlider({Name = "Aura Range", Range = {50, 500}, Increment = 10, CurrentValue = 80, Callback = function(v) AuraRange = v end})
+FarmTab:CreateDropdown({Name = "Aura Range Level", Options = {"1 (80)", "2 (160)", "3 (240)", "4 (320)", "5 (400)"}, CurrentOption = "1 (80)", Callback = function(v)
+   AuraRange = tonumber(v:match("(%d+)")) * 80
+end})
 
 -- Movement
 MoveTab:CreateToggle({Name = "Fly", CurrentValue = false, Callback = function(v) ToggleFly(v) end})
@@ -243,17 +236,11 @@ MoveTab:CreateSlider({Name = "Jump Power", Range = {50, 300}, Increment = 10, Cu
 
 -- Visual
 VisualTab:CreateToggle({Name = "Mob ESP", CurrentValue = false, Callback = function(v) ToggleMobESP(v, EspColor) end})
-VisualTab:CreateDropdown({Name = "ESP Color", Options = {"Red", "Green", "Blue", "Yellow", "White", "Purple", "Orange", "Pink"}, CurrentOption = "Red", Callback = function(v)
-   local colors = {Red = Color3.fromRGB(255,0,0), Green = Color3.fromRGB(0,255,0), Blue = Color3.fromRGB(0,0,255), Yellow = Color3.fromRGB(255,255,0), White = Color3.fromRGB(255,255,255), Purple = Color3.fromRGB(128,0,128), Orange = Color3.fromRGB(255,165,0), Pink = Color3.fromRGB(255,192,203)}
-   EspColor = colors[v]
-   if MobESP then ToggleMobESP(true, EspColor) end
-end})
 VisualTab:CreateToggle({Name = "Fullbright", CurrentValue = false, Callback = function(v) ToggleFullbright(v) end})
-VisualTab:CreateButton({Name = "Rejoin (Same World)", Callback = Rejoin})
 
 Rayfield:Notify({
    Title = "Pablo OP Carregado!",
-   Content = "Todas opções funcionando: Kill Aura mata de longe sem TP, ESP toggle/update/cor, no initial high jump, etc.",
+   Content = "Kill Aura fixado (sem TP, bate de longe), ESP update/cor toggle, no initial high jump, etc.",
    Duration = 6
 })
 
