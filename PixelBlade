@@ -37,22 +37,16 @@ local AuraRange = 300
 local FlySpeed = 50
 local WalkSpeedVal = 16
 local JumpPowerVal = 50
-local FarmHeightOffset = 12
+local FarmHeightOffset = 25
 
 local BV, FlyConn, NoClipConn, EspHighlights, HitboxParts = nil, nil, nil, {}, {}
-
-local function UpdateChar()
-   if Humanoid then
-      Humanoid.WalkSpeed = WalkSpeedVal
-      Humanoid.JumpPower = JumpPowerVal
-   end
-end
 
 Player.CharacterAdded:Connect(function(newChar)
    Character = newChar
    Humanoid = newChar:WaitForChild("Humanoid")
    RootPart = newChar:WaitForChild("HumanoidRootPart")
-   UpdateChar()
+   Humanoid.WalkSpeed = WalkSpeedVal
+   Humanoid.JumpPower = JumpPowerVal
 end)
 
 local function GetEnemies()
@@ -62,12 +56,14 @@ local function GetEnemies()
    for _, obj in ipairs(Workspace:GetChildren()) do
       if count >= 30 then break end
       local hum = obj:FindFirstChild("Humanoid")
-      local hrp = obj:FindFirstChild("HumanoidRootPart")
-      if hum and hrp and hum.Health > 0 and hum.MaxHealth > 1 and obj ~= Character and not Players:GetPlayerFromCharacter(obj) then
-         local dist = (rootPos - hrp.Position).Magnitude
-         if dist <= AuraRange then
-            enemies[#enemies + 1] = {hrp = hrp, hum = hum}
-            count += 1
+      if hum and hum.Health > 0 and hum.MaxHealth > 1 then
+         local hrp = obj:FindFirstChild("HumanoidRootPart")
+         if hrp and obj ~= Character and not Players:GetPlayerFromCharacter(obj) then
+            local dist = (rootPos - hrp.Position).Magnitude
+            if dist <= AuraRange then
+               enemies[#enemies + 1] = {hrp = hrp, hum = hum}
+               count += 1
+            end
          end
       end
    end
@@ -91,15 +87,21 @@ end
 local function ToggleFly(state)
    FlyEnabled = state
    if BV then BV:Destroy() BV = nil end
-   if FlyConn then FlyConn:Disconnect() FlyConn = nil end
    if state and RootPart then
       BV = Instance.new("BodyVelocity")
       BV.MaxForce = Vector3.new(1e9,1e9,1e9)
+      BV.Velocity = Vector3.new(0,0,0)
       BV.Parent = RootPart
       FlyConn = RunService.Heartbeat:Connect(function()
-         if not FlyEnabled then return end
+         if not FlyEnabled then
+            FlyConn:Disconnect()
+            FlyConn = nil
+            BV:Destroy()
+            BV = nil
+            return
+         end
          local cam = workspace.CurrentCamera
-         local move = Vector3.zero
+         local move = Vector3.new()
          if UserInputService:IsKeyDown(Enum.KeyCode.W) then move += cam.CFrame.LookVector end
          if UserInputService:IsKeyDown(Enum.KeyCode.S) then move -= cam.CFrame.LookVector end
          if UserInputService:IsKeyDown(Enum.KeyCode.A) then move -= cam.CFrame.RightVector end
@@ -112,7 +114,7 @@ end
 
 UserInputService.JumpRequest:Connect(function()
    if InfiniteJump and Humanoid then
-      Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+      Humanoid:ChangeState("Jumping")
    end
 end)
 
@@ -155,18 +157,18 @@ local function ToggleMobESP(state)
    for _, hl in ipairs(EspHighlights) do hl:Destroy() end
    EspHighlights = {}
    if state then
-      RunService.Heartbeat:Connect(function()
-         if not MobESP then return end
+      local conn = RunService.Heartbeat:Connect(function()
+         if not MobESP then conn:Disconnect() return end
          for _, obj in ipairs(Workspace:GetChildren()) do
             local hum = obj:FindFirstChild("Humanoid")
-            local hrp = obj:FindFirstChild("HumanoidRootPart")
-            if hum and hrp and hum.Health > 0 and not obj:FindFirstChild("ESPHighlight") then
-               local h = Instance.new("Highlight")
-               h.Name = "ESPHighlight"
-               h.FillTransparency = 0.8
-               h.OutlineColor = Color3.fromRGB(255,0,0)
-               h.Parent = obj
-               EspHighlights[#EspHighlights+1] = h
+            if hum and hum.Health > 0 and obj ~= Character and not obj:FindFirstChild("ESPHighlight") then
+               local highlight = Instance.new("Highlight")
+               highlight.Name = "ESPHighlight"
+               highlight.FillTransparency = 0.8
+               highlight.OutlineTransparency = 0
+               highlight.OutlineColor = Color3.fromRGB(255,0,0)
+               highlight.Parent = obj
+               EspHighlights[#EspHighlights+1] = highlight
             end
          end
       end)
@@ -175,16 +177,16 @@ end
 
 local function ToggleVisibleHitbox(state)
    VisibleHitbox = state
-   for _, b in ipairs(HitboxParts) do b:Destroy() end
+   for _, bx in ipairs(HitboxParts) do bx:Destroy() end
    HitboxParts = {}
    if state then
-      RunService.Heartbeat:Connect(function()
-         if not VisibleHitbox then return end
+      local conn = RunService.Heartbeat:Connect(function()
+         if not VisibleHitbox then conn:Disconnect() return end
          local size = AuraRange / 20
          for _, obj in ipairs(Workspace:GetChildren()) do
             local hum = obj:FindFirstChild("Humanoid")
             local hrp = obj:FindFirstChild("HumanoidRootPart")
-            if hum and hrp and hum.Health > 0 and not hrp:FindFirstChild("HitboxVisual") then
+            if hum and hum.Health > 0 and obj ~= Character and not obj:FindFirstChild("HitboxVisual") then
                local box = Instance.new("BoxHandleAdornment")
                box.Name = "HitboxVisual"
                box.Size = Vector3.new(size, size * 1.5, size)
@@ -219,23 +221,23 @@ local FarmTab = Window:CreateTab("Auto Farm")
 local MoveTab = Window:CreateTab("Movement")
 local VisualTab = Window:CreateTab("Visual")
 
-FarmTab:CreateToggle({Name="Kill Aura",CurrentValue=false,Callback=function(v)KillAura=v end})
-FarmTab:CreateToggle({Name="Auto Farm",CurrentValue=false,Callback=function(v)AutoFarm=v end})
+FarmTab:CreateToggle({Name = "Kill Aura", CurrentValue = false, Callback = function(v) KillAura = v end})
+FarmTab:CreateToggle({Name = "Auto Farm", CurrentValue = false, Callback = function(v) AutoFarm = v end})
 
-MoveTab:CreateToggle({Name="Fly",CurrentValue=false,Callback=function(v)ToggleFly(v) end})
-MoveTab:CreateToggle({Name="Noclip",CurrentValue=false,Callback=function(v)ToggleNoClip(v) end})
-MoveTab:CreateToggle({Name="Infinite Jump",CurrentValue=false,Callback=function(v)InfiniteJump=v end})
-MoveTab:CreateSlider({Name="Walk Speed",Range={16,200},Increment=5,CurrentValue=16,Callback=function(v)WalkSpeedVal=v UpdateChar() end})
-MoveTab:CreateSlider({Name="Jump Power",Range={50,300},Increment=10,CurrentValue=50,Callback=function(v)JumpPowerVal=v UpdateChar() end})
+MoveTab:CreateToggle({Name = "Fly", CurrentValue = false, Callback = function(v) ToggleFly(v) end})
+MoveTab:CreateToggle({Name = "Noclip", CurrentValue = false, Callback = function(v) ToggleNoClip(v) end})
+MoveTab:CreateToggle({Name = "Infinite Jump", CurrentValue = false, Callback = function(v) InfiniteJump = v end})
+MoveTab:CreateSlider({Name = "Walk Speed", Range = {16, 200}, Increment = 5, CurrentValue = 16, Callback = function(v) WalkSpeedVal = v end})
+MoveTab:CreateSlider({Name = "Jump Power", Range = {50, 300}, Increment = 10, CurrentValue = 50, Callback = function(v) JumpPowerVal = v end})
 
-VisualTab:CreateToggle({Name="Mob ESP",CurrentValue=false,Callback=function(v)ToggleMobESP(v) end})
-VisualTab:CreateToggle({Name="Visible Hitbox on Mobs",CurrentValue=false,Callback=function(v)ToggleVisibleHitbox(v) end})
-VisualTab:CreateToggle({Name="Fullbright",CurrentValue=false,Callback=function(v)ToggleFullbright(v) end})
+VisualTab:CreateToggle({Name = "Mob ESP", CurrentValue = false, Callback = function(v) ToggleMobESP(v) end})
+VisualTab:CreateToggle({Name = "Visible Hitbox on Mobs", CurrentValue = false, Callback = function(v) ToggleVisibleHitbox(v) end})
+VisualTab:CreateToggle({Name = "Fullbright", CurrentValue = false, Callback = function(v) ToggleFullbright(v) end})
 
 Rayfield:Notify({
-   Title="Pablo OP",
-   Content="Script carregado com correções aplicadas.",
-   Duration=5
+   Title = "Pablo OP",
+   Content = "Auto Farm corrigido para PixelBlade",
+   Duration = 6
 })
 
-print("Pablo OP - Script corrigido")
+print("Pablo OP - Funcionando")
