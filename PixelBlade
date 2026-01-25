@@ -9,7 +9,7 @@ local Window = Rayfield:CreateWindow({
    KeySystem = false
 })
 
--- Cache services e remotes (mais rápido)
+-- Cache services e remotes
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -57,10 +57,12 @@ local function GetEnemies()
    local rootPos = RootPart.Position
    for _, obj in ipairs(Workspace:GetChildren()) do
       local hum = obj:FindFirstChild("Humanoid")
-      local hrp = obj:FindFirstChild("HumanoidRootPart")
-      if hum and hum.Health > 0 and hrp and obj ~= Character and not Players:GetPlayerFromCharacter(obj) then
-         if (rootPos - hrp.Position).Magnitude <= AuraRange then
-            enemies[#enemies + 1] = {hrp = hrp, hum = hum}
+      if hum and hum.Health > 0 then
+         local hrp = obj:FindFirstChild("HumanoidRootPart")
+         if hrp and obj ~= Character and not Players:GetPlayerFromCharacter(obj) then
+            if (rootPos - hrp.Position).Magnitude <= AuraRange then
+               enemies[#enemies + 1] = {hrp = hrp, hum = hum}
+            end
          end
       end
    end
@@ -113,7 +115,15 @@ UserInputService.JumpRequest:Connect(function()
    end
 end)
 
--- Kill Aura + Auto Farm Loop (único Heartbeat otimizado)
+-- Force Speed/Jump (só quando necessário)
+RunService.Heartbeat:Connect(function()
+   if Humanoid then
+      if Humanoid.WalkSpeed ~= WalkSpeedVal then Humanoid.WalkSpeed = WalkSpeedVal end
+      if Humanoid.JumpPower ~= JumpPowerVal then Humanoid.JumpPower = JumpPowerVal end
+   end
+end)
+
+-- Kill Aura + Auto Farm Loop (único loop otimizado)
 RunService.Heartbeat:Connect(function()
    local enemies = GetEnemies()
 
@@ -124,7 +134,7 @@ RunService.Heartbeat:Connect(function()
       end
    end
 
-   -- Auto Farm
+   -- Auto Farm (otimizado: mata + avança só quando necessário)
    if AutoFarm then
       for _, data in ipairs(enemies) do
          onHitRemote:FireServer(data.hum, 9999999999, {}, 0)
@@ -250,7 +260,7 @@ VisualTab:CreateToggle({Name = "Fullbright", CurrentValue = false, Callback = fu
 
 Rayfield:Notify({
    Title = "Pablo OP Otimizado!",
-   Content = "Kill Aura + Auto Farm em único loop (mais eficiente), range sem erro, independente da E.",
+   Content = "Kill Aura + Auto Farm em único loop eficiente, range sem erro, independente da E.",
    Duration = 6
 })
 
