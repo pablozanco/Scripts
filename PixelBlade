@@ -1,6 +1,5 @@
 -- Pixel Blade OP Hub v9 (January 2026) - Pablo Henricke
--- FIXED: Full panel shows all options | Toggles fit without cutting | Interactive clicks/move/minimize | Like your screenshot but fixed
--- Kill Aura | Auto Farm | Skill Upgrades | Speed | English names | Minimize/Open with ↕ & F1 | Drag with title
+-- FIXED: All options visible | Toggles clickable & move | Minimize/Open with ↕ & F1 | Drag with title | No cutting text | English names
 -- Loadstring: loadstring(game:HttpGet("https://raw.githubusercontent.com/pablozanco/Scripts/main/PixelBlade"))()
 
 local player = game.Players.LocalPlayer
@@ -100,11 +99,11 @@ local function createGUI()
         gui.Parent = player:WaitForChild("PlayerGui", 20)
         
         mainFrame = Instance.new("Frame")
-        mainFrame.Size = UDim2.new(0, 240, 0, 450)
-        mainFrame.Position = UDim2.new(0.01, 0, 0.2, 0)
+        mainFrame.Size = UDim2.new(0, 260, 0, 480)  -- Maior para caber tudo sem corte
+        mainFrame.Position = UDim2.new(0.01, 0, 0.15, 0)
         mainFrame.BackgroundColor3 = Color3.fromRGB(12, 15, 25)
         mainFrame.BorderSizePixel = 0
-        mainFrame.ClipsDescendants = false
+        mainFrame.ClipsDescendants = false  -- Para cliques funcionarem
         mainFrame.Visible = true
         mainFrame.Parent = gui
         
@@ -124,47 +123,47 @@ local function createGUI()
         stroke.Parent = mainFrame
         
         local title = Instance.new("TextLabel")
-        title.Size = UDim2.new(1,0,0,50)
+        title.Size = UDim2.new(1,0,0,60)
         title.BackgroundTransparency = 1
         title.Text = "Pablo OP v9"
         title.TextColor3 = Color3.fromRGB(0,180,255)
-        title.TextSize = 22
-        title.Font = Enum.Font.GothamBold
+        title.TextSize = 24
+        title.Font = Enum.Font.GothamBlack
         title.Parent = mainFrame
         
         local minBtn = Instance.new("TextButton")
-        minBtn.Size = UDim2.new(0,35,0,35)
-        minBtn.Position = UDim2.new(1,-40,0,8)
+        minBtn.Size = UDim2.new(0,40,0,40)
+        minBtn.Position = UDim2.new(1,-50,0,10)
         minBtn.BackgroundColor3 = Color3.fromRGB(30,35,50)
         minBtn.Text = "↕"
         minBtn.TextColor3 = Color3.fromRGB(200,220,255)
-        minBtn.TextSize = 20
-        minBtn.Font = Enum.Font.Gotham
+        minBtn.TextSize = 22
+        minBtn.Font = Enum.Font.GothamBold
         minBtn.Parent = mainFrame
         
         local cornerMin = Instance.new("UICorner")
-        cornerMin.CornerRadius = UDim.new(0,16)
+        cornerMin.CornerRadius = UDim.new(0,18)
         cornerMin.Parent = minBtn
         
         statsLabel = Instance.new("TextLabel")
-        statsLabel.Size = UDim2.new(1,-20,0,30)
-        statsLabel.Position = UDim2.new(0,10,0,55)
+        statsLabel.Size = UDim2.new(1,-20,0,35)
+        statsLabel.Position = UDim2.new(0,10,0,70)
         statsLabel.BackgroundTransparency = 1
         statsLabel.Text = "Kills: 0 | Farms: 0 | Upgrades: 0"
         statsLabel.TextColor3 = Color3.fromRGB(140,190,255)
-        statsLabel.TextSize = 14
+        statsLabel.TextSize = 16
         statsLabel.Font = Enum.Font.GothamMedium
         statsLabel.Parent = mainFrame
         
         local function createToggle(name, yPos, label, desc)
             local frame = Instance.new("Frame")
-            frame.Size = UDim2.new(1,-20,0,70)
+            frame.Size = UDim2.new(1,-20,0,80)  -- Espaço maior para texto completo
             frame.Position = UDim2.new(0,10,0,yPos)
             frame.BackgroundColor3 = Color3.fromRGB(25,30,45)
             frame.Parent = mainFrame
             
             local corner = Instance.new("UICorner")
-            corner.CornerRadius = UDim.new(0,12)
+            corner.CornerRadius = UDim.new(0,14)
             corner.Parent = frame
             
             local stroke = Instance.new("UIStroke")
@@ -227,16 +226,16 @@ local function createGUI()
             end)
         end
         
-        createToggle("aura", 90, "Kill Aura", "Radius 80 - Instant kill")
-        createToggle("farm", 170, "Auto Farm", "Fly + Prompts & Exits")
-        createToggle("upgrades", 250, "Skill Upgrades", "Auto max upgrades")
-        createToggle("speed", 330, "Speed", "Slider 0-100")
+        createToggle("aura", 110, "Kill Aura", "Radius 80 - Instant kill")
+        createToggle("farm", 200, "Auto Farm", "Fly + Prompts & Exits")
+        createToggle("upgrades", 290, "Skill Upgrades", "Auto max upgrades")
+        createToggle("speed", 380, "Speed", "Slider 0-100")
         
         -- Slider
         local sliderFrame = Instance.new("Frame")
         sliderFrame.Name = "SliderFrame"
         sliderFrame.Size = UDim2.new(1,-20,0,40)
-        sliderFrame.Position = UDim2.new(0,10,0,410)
+        sliderFrame.Position = UDim2.new(0,10,0,460)
         sliderFrame.BackgroundColor3 = Color3.fromRGB(25,30,45)
         sliderFrame.Visible = false
         sliderFrame.Parent = mainFrame
@@ -297,7 +296,7 @@ local function createGUI()
             end
         end)
         
-        -- Drag
+        -- Drag Panel
         local drag = {dragging = false, start = nil, mouse = nil}
         title.InputBegan:Connect(function(inp)
             if inp.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -327,7 +326,7 @@ local function createGUI()
             safeLog("Minimize button clicked - Panel now " .. (panelVisible and "open" or "closed"))
         end)
         
-        -- F1 Toggle
+        -- F1
         uis.InputBegan:Connect(function(inp)
             if inp.KeyCode == Enum.KeyCode.F1 then
                 panelVisible = not panelVisible
@@ -338,7 +337,7 @@ local function createGUI()
         
         setZIndexRecursive(mainFrame, configs.guiZIndex)
         guiLoaded = true
-        safeLog("GUI v9 loaded - All options visible, interactive. Click switches and ↕")
+        safeLog("GUI v9 loaded - All options visible, interactive. Click switches, ↕ to minimize/open, title to drag")
     end)
     
     if not success then
@@ -346,7 +345,7 @@ local function createGUI()
     end
 end
 
--- Features (robust)
+-- Features
 local function killAura()
     if not toggles.aura then return end
     if not getCharSafe() then return end
@@ -460,7 +459,7 @@ task.spawn(function()
     createGUI()
     cleanUI()
     fullReset()
-    safeLog("v9 loaded - Panel ready. Click ↕ to minimize/open, switches to toggle, title to drag")
+    safeLog("v9 loaded - Panel ready. Click switches, ↕ to minimize/open, title to drag")
 end)
 
 player.CharacterAdded:Connect(function()
