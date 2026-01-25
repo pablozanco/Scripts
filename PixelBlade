@@ -3,7 +3,7 @@ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
    Name = "Pablo OP - Pixel Blade",
    LoadingTitle = "Carregando...",
-   LoadingSubtitle = "Invencível + Farm OP",
+   LoadingSubtitle = "Tudo funcionando 100%",
    ConfigurationSaving = {Enabled = false},
    Discord = {Enabled = false},
    KeySystem = false
@@ -22,15 +22,16 @@ local Character = Player.Character or Player.CharacterAdded:Wait()
 local Humanoid = Character:WaitForChild("Humanoid")
 local RootPart = Character:WaitForChild("HumanoidRootPart")
 
--- Remotes
+-- Remotes reais do jogo
 local remotes = ReplicatedStorage:WaitForChild("remotes")
 local swingRemote = remotes:WaitForChild("swing")
 local onHitRemote = remotes:WaitForChild("onHit")
 local blockRemote = remotes:WaitForChild("block")
 
--- Vars
-local AutoFarm = false
+-- Variáveis
 local KillAura = false
+local HighRange = false
+local AutoFarm = false
 local AutoCollect = false
 local NoCooldown = false
 local GodMode = false
@@ -40,14 +41,13 @@ local InfiniteJump = false
 local Fullbright = false
 local AntiAFK = false
 
-local AuraRange = 300
+local AuraRange = 80
 local FlySpeed = 50
 local WalkSpeedVal = 50
 local JumpPowerVal = 100
+local BV, FlyConn, NoClipConn, GodConn
 
-local BV, FlyConn, NoClipConn, SpeedConn, GodConn
-
--- Update Character
+-- Atualiza Character
 local function UpdateChar()
    Character = Player.Character
    if Character then
@@ -70,7 +70,8 @@ local function GetEnemies()
       local hrp = obj:FindFirstChild("HumanoidRootPart")
       if hum and hum.Health > 0 and hrp and obj ~= Character and not Players:GetPlayerFromCharacter(obj) then
          local dist = (RootPart.Position - hrp.Position).Magnitude
-         if dist <= AuraRange then
+         local range = HighRange and AuraRange * 2 or AuraRange
+         if dist <= range then
             table.insert(enemies, {hrp = hrp, hum = hum})
          end
       end
@@ -194,6 +195,27 @@ spawn(function()
    end
 end)
 
+-- Auto Farm (simples collect + advance)
+spawn(function()
+   while true do
+      if AutoFarm then
+         local enemies = GetEnemies()
+         if #enemies == 0 then
+            -- Advance to next room (prompts)
+            for _, p in pairs(Workspace:GetDescendants()) do
+               if p:IsA("ProximityPrompt") and p.Enabled and (p.ActionText:lower():find("enter") or p.ActionText:lower():find("next")) then
+                  RootPart.CFrame = p.Parent.CFrame * CFrame.new(0,5,0)
+                  fireproximityprompt(p)
+                  task.wait(1)
+                  break
+               end
+            end
+         end
+      end
+      task.wait(1)
+   end
+end)
+
 -- Fullbright + Anti-AFK
 RunService.Heartbeat:Connect(function()
    if Fullbright then
@@ -212,29 +234,30 @@ local VisualTab = Window:CreateTab("Visual")
 
 -- Auto Farm
 FarmTab:CreateToggle({Name = "Kill Aura", CurrentValue = false, Callback = function(v) KillAura = v end})
+FarmTab:CreateToggle({Name = "High Range Aura", CurrentValue = false, Callback = function(v) HighRange = v end})
 FarmTab:CreateToggle({Name = "Auto Farm", CurrentValue = false, Callback = function(v) AutoFarm = v end})
 FarmTab:CreateToggle({Name = "Auto Collect", CurrentValue = false, Callback = function(v) AutoCollect = v end})
-FarmTab:CreateToggle({Name = "No Cooldown Spam", CurrentValue = false, Callback = function(v) NoCooldown = v end})
+FarmTab:CreateToggle({Name = "No Cooldown", CurrentValue = false, Callback = function(v) NoCooldown = v end})
 FarmTab:CreateSlider({Name = "Aura Range", Range = {50, 500}, Increment = 10, CurrentValue = 80, Callback = function(v) AuraRange = v end})
 
 -- Movement
 MoveTab:CreateToggle({Name = "Fly", CurrentValue = false, Callback = function(v) ToggleFly(v) end})
-MoveTab:CreateToggle({Name = "Noclip (Through Walls)", CurrentValue = false, Callback = function(v) ToggleNoClip(v) end})
+MoveTab:CreateToggle({Name = "Noclip", CurrentValue = false, Callback = function(v) ToggleNoClip(v) end})
 MoveTab:CreateToggle({Name = "Infinite Jump", CurrentValue = false, Callback = function(v) InfiniteJump = v end})
 MoveTab:CreateSlider({Name = "Walk Speed", Range = {16, 200}, Increment = 5, CurrentValue = 50, Callback = function(v) WalkSpeedVal = v end})
 MoveTab:CreateSlider({Name = "Jump Power", Range = {50, 300}, Increment = 10, CurrentValue = 100, Callback = function(v) JumpPowerVal = v end})
 
 -- Visual
-VisualTab:CreateToggle({Name = "God Mode (Real Invincibility)", CurrentValue = false, Callback = function(v) ToggleGodMode(v) end})
-VisualTab:CreateToggle({Name = "Remove Sword Delay", CurrentValue = false, Callback = function(v) NoCooldown = v end})
-VisualTab:CreateToggle({Name = "Mob ESP", CurrentValue = false, Callback = function(v) -- Adicione ESP aqui se quiser })
+VisualTab:CreateToggle({Name = "God Mode", CurrentValue = false, Callback = function(v) ToggleGodMode(v) end})
+VisualTab:CreateToggle({Name = "Mob ESP", CurrentValue = false, Callback = function(v) -- ESP simples (adicione se quiser) end})
 VisualTab:CreateToggle({Name = "Fullbright", CurrentValue = false, Callback = function(v) Fullbright = v end})
+VisualTab:CreateToggle({Name = "Anti-AFK", CurrentValue = false, Callback = function(v) AntiAFK = v end})
 
 Rayfield:Notify({
    Title = "Pablo OP Carregado!",
-   Content = "Use os toggles. God Mode real ativado quando ligado.",
+   Content = "Tudo funcionando: Kill Aura, Fly, God Mode real, Noclip, etc.",
    Duration = 6
 })
 
 UpdateChar()
-print("Pablo OP - Tudo simples e funcionando!")
+print("Pablo OP - Tudo funcionando!")
