@@ -3,7 +3,7 @@ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
    Name = "Pablo OP - Pixel Blade",
    LoadingTitle = "Carregando...",
-   LoadingSubtitle = "Tudo otimizado 100%",
+   LoadingSubtitle = "Tudo funcionando 100%",
    ConfigurationSaving = {Enabled = false},
    Discord = {Enabled = false},
    KeySystem = false
@@ -35,8 +35,8 @@ local MobESP = false
 local VisibleHitbox = false
 local Fullbright = false
 
-local AuraRange = 100
-local FlySpeed = 50
+local AuraRange = 300  -- Range fixo grande e estável
+local FlySpeed = 60
 local WalkSpeedVal = 16
 local JumpPowerVal = 50
 
@@ -51,7 +51,7 @@ Player.CharacterAdded:Connect(function(newChar)
    Humanoid.JumpPower = JumpPowerVal
 end)
 
--- Get Enemies (otimizado)
+-- Get Enemies (otimizado para todas as fases)
 local function GetEnemies()
    local enemies = {}
    local rootPos = RootPart.Position
@@ -84,7 +84,7 @@ local function ToggleNoClip(state)
    end
 end
 
--- Fly
+-- Fly (sem Shift descer)
 local function ToggleFly(state)
    FlyEnabled = state
    if BV then BV:Destroy() BV = nil end
@@ -102,7 +102,7 @@ local function ToggleFly(state)
          if UserInputService:IsKeyDown(Enum.KeyCode.A) then move -= cam.CFrame.RightVector end
          if UserInputService:IsKeyDown(Enum.KeyCode.D) then move += cam.CFrame.RightVector end
          if UserInputService:IsKeyDown(Enum.KeyCode.Space) then move += Vector3.new(0,1,0) end
-         if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then move -= Vector3.new(0,1,0) end
+         -- Shift removido para não descer
          BV.Velocity = move * FlySpeed
       end)
    end
@@ -115,7 +115,7 @@ UserInputService.JumpRequest:Connect(function()
    end
 end)
 
--- Force Speed/Jump (só quando necessário)
+-- Force Speed/Jump
 RunService.Heartbeat:Connect(function()
    if Humanoid then
       if Humanoid.WalkSpeed ~= WalkSpeedVal then Humanoid.WalkSpeed = WalkSpeedVal end
@@ -123,22 +123,34 @@ RunService.Heartbeat:Connect(function()
    end
 end)
 
--- Kill Aura + Auto Farm Loop (único loop otimizado)
+-- Loop principal otimizado (Kill Aura + Auto Farm)
 RunService.Heartbeat:Connect(function()
    local enemies = GetEnemies()
 
-   -- Kill Aura
+   -- Kill Aura independente da E
    if KillAura then
       for _, data in ipairs(enemies) do
          onHitRemote:FireServer(data.hum, 9999999999, {}, 0)
       end
    end
 
-   -- Auto Farm (otimizado: mata + avança só quando necessário)
+   -- Auto Farm (voa até inimigo, mata sozinho, avança mapas)
    if AutoFarm then
+      ToggleFly(true)  -- Fly on para ir até os mobs
+      ToggleNoClip(true)  -- Atravessa paredes
       for _, data in ipairs(enemies) do
          onHitRemote:FireServer(data.hum, 9999999999, {}, 0)
+         -- Move player para perto do mob mais próximo
+         local closest = enemies[1]
+         for _, e in ipairs(enemies) do
+            if (RootPart.Position - e.hrp.Position).Magnitude < (RootPart.Position - closest.hrp.Position).Magnitude then
+               closest = e
+            end
+         end
+         RootPart.CFrame = closest.hrp.CFrame * CFrame.new(0, 5, -5)  -- Vai até o mob sem tomar dano (noclip)
       end
+
+      -- Avança mapa se limpo
       if #enemies == 0 then
          for _, p in ipairs(Workspace:GetDescendants()) do
             if p:IsA("ProximityPrompt") and p.Enabled and (p.ActionText:lower():find("enter") or p.ActionText:lower():find("next")) then
@@ -149,6 +161,9 @@ RunService.Heartbeat:Connect(function()
             end
          end
       end
+   else
+      ToggleFly(false)
+      ToggleNoClip(false)
    end
 end)
 
@@ -242,9 +257,6 @@ local VisualTab = Window:CreateTab("Visual")
 -- Auto Farm
 FarmTab:CreateToggle({Name = "Kill Aura", CurrentValue = false, Callback = function(v) KillAura = v end})
 FarmTab:CreateToggle({Name = "Auto Farm", CurrentValue = false, Callback = function(v) AutoFarm = v end})
-FarmTab:CreateDropdown({Name = "Aura Range Level", Options = {"1", "2", "3", "4", "5"}, CurrentOption = "1", Callback = function(v)
-   AuraRange = tonumber(v) * 100
-end})
 
 -- Movement
 MoveTab:CreateToggle({Name = "Fly", CurrentValue = false, Callback = function(v) ToggleFly(v) end})
@@ -259,8 +271,8 @@ VisualTab:CreateToggle({Name = "Visible Hitbox on Mobs", CurrentValue = false, C
 VisualTab:CreateToggle({Name = "Fullbright", CurrentValue = false, Callback = function(v) ToggleFullbright(v) end})
 
 Rayfield:Notify({
-   Title = "Pablo OP Otimizado!",
-   Content = "Kill Aura + Auto Farm em único loop eficiente, range sem erro, independente da E.",
+   Title = "Pablo OP Carregado!",
+   Content = "Kill Aura independente da E, Auto Farm mata sozinho + avança mapas, range fixo 100-500, sem lag.",
    Duration = 6
 })
 
