@@ -34,7 +34,6 @@ local HighRange = false
 local AutoFarm = false
 local AutoCollect = false
 local NoCooldown = false
-local GodMode = false
 local FlyEnabled = false
 local NoClipEnabled = false
 local InfiniteJump = false
@@ -45,7 +44,8 @@ local AuraRange = 80
 local FlySpeed = 50
 local WalkSpeedVal = 50
 local JumpPowerVal = 100
-local BV, FlyConn, NoClipConn, GodConn, EspConnections = nil, nil, nil, nil, {}
+local EspColor = Color3.fromRGB(255, 0, 0)
+local BV, FlyConn, NoClipConn, EspHighlights = nil, nil, nil, {}
 
 -- Atualiza Character
 local function UpdateChar()
@@ -53,10 +53,6 @@ local function UpdateChar()
    if Character then
       Humanoid = Character:WaitForChild("Humanoid")
       RootPart = Character:WaitForChild("HumanoidRootPart")
-      if GodMode then
-         Humanoid.MaxHealth = math.huge
-         Humanoid.Health = math.huge
-      end
    end
 end
 Player.CharacterAdded:Connect(UpdateChar)
@@ -118,24 +114,6 @@ local function ToggleFly(state)
    end
 end
 
--- God Mode Real
-local function ToggleGodMode(state)
-   GodMode = state
-   if state then
-      Humanoid.MaxHealth = math.huge
-      Humanoid.Health = math.huge
-      GodConn = RunService.Heartbeat:Connect(function()
-         if Humanoid and Humanoid.Health < Humanoid.MaxHealth then
-            Humanoid.Health = Humanoid.MaxHealth
-         end
-      end)
-   else
-      if GodConn then GodConn:Disconnect() end
-      Humanoid.MaxHealth = 100
-      Humanoid.Health = 100
-   end
-end
-
 -- Infinite Jump
 UserInputService.JumpRequest:Connect(function()
    if InfiniteJump and Humanoid then
@@ -151,14 +129,15 @@ RunService.Heartbeat:Connect(function()
    end
 end)
 
--- Kill Aura Loop
+-- Kill Aura Loop (fix: no hitbox change to avoid visual bugs, direct TP + hit from far)
 spawn(function()
    while true do
       if KillAura then
          local enemies = GetEnemies()
          for _, data in pairs(enemies) do
             pcall(function()
-               data.hrp.Size = Vector3.new(30, 75, 30)
+               RootPart.CFrame = data.hrp.CFrame * CFrame.new(0,0,-5)  -- TP close but far hit
+               swingRemote:FireServer()
                onHitRemote:FireServer(data.hum, 9999999999, {}, 0)
             end)
          end
@@ -169,7 +148,7 @@ spawn(function()
    end
 end)
 
--- No Cooldown Spam
+-- No Cooldown Spam (fix: swing spam for no delay)
 spawn(function()
    while true do
       if NoCooldown then
@@ -195,7 +174,7 @@ spawn(function()
    end
 end)
 
--- Auto Farm (collect + advance)
+-- Auto Farm (advance rooms, safe)
 spawn(function()
    while true do
       if AutoFarm then
@@ -216,26 +195,25 @@ spawn(function()
    end
 end)
 
--- Mob ESP
-local function ToggleMobESP(state)
+-- Mob ESP (fix: exclude player, toggle on/off, color choice)
+local function ToggleMobESP(state, color)
    MobESP = state
-   for _, conn in pairs(EspConnections) do conn:Disconnect() end
-   EspConnections = {}
+   for _, highlight in pairs(EspHighlights) do
+      highlight:Destroy()
+   end
+   EspHighlights = {}
    if state then
-      local conn = RunService.RenderStepped:Connect(function()
-         for _, obj in pairs(Workspace:GetChildren()) do
-            local hum = obj:FindFirstChild("Humanoid")
-            if hum and hum.Health > 0 and not obj:FindFirstChild("ESP") then
-               local esp = Instance.new("Highlight")
-               esp.Name = "ESP"
-               esp.FillTransparency = 0.8
-               esp.OutlineTransparency = 0
-               esp.OutlineColor = Color3.fromRGB(255,0,0)
-               esp.Parent = obj
-            end
+      for _, obj in pairs(Workspace:GetChildren()) do
+         local hum = obj:FindFirstChild("Humanoid")
+         if hum and obj ~= Character then
+            local highlight = Instance.new("Highlight")
+            highlight.FillTransparency = 0.8
+            highlight.OutlineTransparency = 0
+            highlight.OutlineColor = color
+            highlight.Parent = obj
+            table.insert(EspHighlights, highlight)
          end
-      end)
-      table.insert(EspConnections, conn)
+      end
    end
 end
 
@@ -276,14 +254,19 @@ MoveTab:CreateSlider({Name = "Walk Speed", Range = {16, 200}, Increment = 5, Cur
 MoveTab:CreateSlider({Name = "Jump Power", Range = {50, 300}, Increment = 10, CurrentValue = 100, Callback = function(v) JumpPowerVal = v end})
 
 -- Visual
-VisualTab:CreateToggle({Name = "God Mode", CurrentValue = false, Callback = function(v) ToggleGodMode(v) end})
 VisualTab:CreateToggle({Name = "Remove Sword Delay", CurrentValue = false, Callback = function(v) NoCooldown = v end})
-VisualTab:CreateToggle({Name = "Mob ESP", CurrentValue = false, Callback = function(v) ToggleMobESP(v) end})
+VisualTab:CreateToggle({Name = "Mob ESP", CurrentValue = false, Callback = function(v) ToggleMobESP(v, EspColor) end})
+VisualTab:CreateDropdown({Name = "ESP Color", Options = {"Red", "Green", "Blue"}, CurrentOption = "Red", Callback = function(v)
+   if v == "Red" then EspColor = Color3.fromRGB(255,0,0)
+   elseif v == "Green" then EspColor = Color3.fromRGB(0,255,0)
+   elseif v == "Blue" then EspColor = Color3.fromRGB(0,0,255) end
+   if MobESP then ToggleMobESP(true, EspColor) end
+end})
 VisualTab:CreateToggle({Name = "Fullbright", CurrentValue = false, Callback = function(v) ToggleFullbright(v) end})
 
 Rayfield:Notify({
    Title = "Pablo OP Carregado!",
-   Content = "Todas as opções agora funcionam: Kill Aura mata mobs, Fly voa, God Mode invencível, etc.",
+   Content = "Todas opções agora funcionam: Kill Aura mata de longe, Fly voa, Noclip atravessa, Mob ESP toggle on/off sem bug, etc.",
    Duration = 6
 })
 
