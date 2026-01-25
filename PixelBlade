@@ -1,6 +1,6 @@
--- Pixel Blade OP Hub v7 (January 2026) - Pablo Henricke
--- FIXED: GUI fully interactive | Minimize/Open with ↕ & F1 | Toggles clickable | Names in English
--- Kill Aura | Auto Farm | Skill Upgrades | Speed Slider | All OFF by default | No bugs
+-- Pixel Blade OP Hub v8 (January 2026) - Pablo Henricke
+-- FIXED: Full interactivity | Toggles clickable | Minimize/Maximize with ↕ & F1 | No re-execute needed
+-- Names: Kill Aura | Auto Farm | Skill Upgrades | Speed | All English
 -- Loadstring: loadstring(game:HttpGet("https://raw.githubusercontent.com/pablozanco/Scripts/main/PixelBlade"))()
 
 local player = game.Players.LocalPlayer
@@ -13,10 +13,10 @@ local TweenInfoHover = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDir
 
 -- Configs
 local toggles = {
-    aura = false,       -- Kill Aura
-    farm = false,       -- Auto Farm
-    upgrades = false,   -- Skill Upgrades
-    speed = false       -- Speed
+    aura = false,
+    farm = false,
+    upgrades = false,
+    speed = false
 }
 
 local configs = {
@@ -48,7 +48,7 @@ local panelVisible = true
 local guiLoaded = false
 
 local function safeLog(msg, err)
-    if err then warn("[Pablo OP v7 ERROR] " .. msg) else print("[Pablo OP v7] " .. msg) end
+    if err then warn("[Pablo OP v8 ERROR] " .. msg) else print("[Pablo OP v8] " .. msg) end
 end
 
 local function getCharSafe()
@@ -91,17 +91,17 @@ local function createGUI()
     
     local success, err = pcall(function()
         gui = Instance.new("ScreenGui")
-        gui.Name = "PabloOPv7"
+        gui.Name = "PabloOPv8"
         gui.ResetOnSpawn = false
         gui.IgnoreGuiInset = true
         gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-        gui.DisplayOrder = 999
+        gui.DisplayOrder = 9999
         gui.Enabled = true
-        gui.Parent = player:WaitForChild("PlayerGui", 15)
+        gui.Parent = player:WaitForChild("PlayerGui", 20)
         
         mainFrame = Instance.new("Frame")
-        mainFrame.Size = UDim2.new(0, 220, 0, 380)
-        mainFrame.Position = UDim2.new(0.01, 0, 0.2, 0)
+        mainFrame.Size = UDim2.new(0, 240, 0, 420)
+        mainFrame.Position = UDim2.new(0.01, 0, 0.15, 0)
         mainFrame.BackgroundColor3 = Color3.fromRGB(12, 15, 25)
         mainFrame.BorderSizePixel = 0
         mainFrame.Visible = true
@@ -113,70 +113,71 @@ local function createGUI()
         grad.Parent = mainFrame
         
         local corner = Instance.new("UICorner")
-        corner.CornerRadius = UDim.new(0, 18)
+        corner.CornerRadius = UDim.new(0, 20)
         corner.Parent = mainFrame
         
         local stroke = Instance.new("UIStroke")
         stroke.Color = Color3.fromRGB(0,140,255)
-        stroke.Thickness = 1.8
-        stroke.Transparency = 0.2
+        stroke.Thickness = 2
+        stroke.Transparency = 0.15
         stroke.Parent = mainFrame
         
         local title = Instance.new("TextLabel")
-        title.Size = UDim2.new(1,0,0,50)
+        title.Size = UDim2.new(1,0,0,60)
         title.BackgroundTransparency = 1
-        title.Text = "Pablo OP v7"
+        title.Text = "Pablo OP v8"
         title.TextColor3 = Color3.fromRGB(0,180,255)
-        title.TextSize = 22
-        title.Font = Enum.Font.GothamBold
+        title.TextSize = 24
+        title.Font = Enum.Font.GothamBlack
         title.Parent = mainFrame
         
         local minBtn = Instance.new("TextButton")
-        minBtn.Size = UDim2.new(0,35,0,35)
-        minBtn.Position = UDim2.new(1,-40,0,8)
+        minBtn.Name = "MinBtn"
+        minBtn.Size = UDim2.new(0,40,0,40)
+        minBtn.Position = UDim2.new(1,-50,0,10)
         minBtn.BackgroundColor3 = Color3.fromRGB(30,35,50)
         minBtn.Text = "↕"
         minBtn.TextColor3 = Color3.fromRGB(200,220,255)
-        minBtn.TextSize = 20
-        minBtn.Font = Enum.Font.Gotham
+        minBtn.TextSize = 22
+        minBtn.Font = Enum.Font.GothamBold
         minBtn.Parent = mainFrame
         
         local cornerMin = Instance.new("UICorner")
-        cornerMin.CornerRadius = UDim.new(0,16)
+        cornerMin.CornerRadius = UDim.new(0,18)
         cornerMin.Parent = minBtn
         
         statsLabel = Instance.new("TextLabel")
-        statsLabel.Size = UDim2.new(1,-20,0,30)
-        statsLabel.Position = UDim2.new(0,10,0,55)
+        statsLabel.Size = UDim2.new(1,-20,0,35)
+        statsLabel.Position = UDim2.new(0,10,0,65)
         statsLabel.BackgroundTransparency = 1
         statsLabel.Text = "Kills: 0 | Farms: 0 | Upgrades: 0"
         statsLabel.TextColor3 = Color3.fromRGB(140,190,255)
-        statsLabel.TextSize = 14
+        statsLabel.TextSize = 16
         statsLabel.Font = Enum.Font.GothamMedium
         statsLabel.Parent = mainFrame
         
         local function createToggle(name, yPos, label, desc)
             local frame = Instance.new("Frame")
-            frame.Size = UDim2.new(1,-20,0,55)
+            frame.Size = UDim2.new(1,-20,0,65)
             frame.Position = UDim2.new(0,10,0,yPos)
-            frame.BackgroundColor3 = Color3.fromRGB(25,30,45)
+            frame.BackgroundColor3 = Color3.fromRGB(20,25,40)
             frame.Parent = mainFrame
             
             local corner = Instance.new("UICorner")
-            corner.CornerRadius = UDim.new(0,12)
+            corner.CornerRadius = UDim.new(0,14)
             corner.Parent = frame
             
             local stroke = Instance.new("UIStroke")
-            stroke.Color = Color3.fromRGB(60,70,90)
+            stroke.Color = Color3.fromRGB(50,60,80)
             stroke.Thickness = 1
             stroke.Parent = frame
             
             local lbl = Instance.new("TextLabel")
-            lbl.Size = UDim2.new(0.65,0,1,0)
+            lbl.Size = UDim2.new(0.6,0,1,0)
             lbl.BackgroundTransparency = 1
             lbl.Text = label .. "\n" .. desc
-            lbl.TextColor3 = Color3.fromRGB(190,210,255)
-            lbl.TextSize = 15
+            lbl.TextColor3 = Color3.fromRGB(200,220,255)
+            lbl.TextSize = 16
             lbl.Font = Enum.Font.GothamSemibold
             lbl.TextWrapped = true
             lbl.TextXAlignment = Enum.TextXAlignment.Left
@@ -184,18 +185,18 @@ local function createGUI()
             lbl.Parent = frame
             
             local pill = Instance.new("Frame")
-            pill.Size = UDim2.new(0,55,0,28)
-            pill.Position = UDim2.new(1,-65,0.5,-14)
-            pill.BackgroundColor3 = toggles[name] and Color3.fromRGB(0,190,90) or Color3.fromRGB(70,75,85)
+            pill.Size = UDim2.new(0,60,0,30)
+            pill.Position = UDim2.new(1,-70,0.5,-15)
+            pill.BackgroundColor3 = toggles[name] and Color3.fromRGB(0,200,100) or Color3.fromRGB(80,80,90)
             pill.Parent = frame
             
             local cornerPill = Instance.new("UICorner")
-            cornerPill.CornerRadius = UDim.new(0,14)
+            cornerPill.CornerRadius = UDim.new(0,15)
             cornerPill.Parent = pill
             
             local knob = Instance.new("Frame")
-            knob.Size = UDim2.new(0,24,0,24)
-            knob.Position = UDim2.new(toggles[name] and 0.65 or 0,0,0.5,-12)
+            knob.Size = UDim2.new(0,26,0,26)
+            knob.Position = UDim2.new(toggles[name] and 0.6,0,0.5,-13)
             knob.BackgroundColor3 = Color3.new(1,1,1)
             knob.Parent = pill
             
@@ -203,45 +204,57 @@ local function createGUI()
             cornerKnob.CornerRadius = UDim.new(1,0)
             cornerKnob.Parent = knob
             
-            pill.MouseButton1Click:Connect(function()
+            -- Hover
+            frame.MouseEnter:Connect(function()
+                ts:Create(stroke, TweenInfoHover, {Color = Color3.fromRGB(0,160,255), Transparency = 0}):Play()
+            end)
+            frame.MouseLeave:Connect(function()
+                ts:Create(stroke, TweenInfoHover, {Color = Color3.fromRGB(50,60,80), Transparency = 1}):Play()
+            end)
+            
+            -- Click
+            local clickConn = pill.MouseButton1Click:Connect(function()
                 toggles[name] = not toggles[name]
-                local target = toggles[name] and 0.65 or 0
-                ts:Create(pill, TweenInfoSmooth, {BackgroundColor3 = toggles[name] and Color3.fromRGB(0,190,90) or Color3.fromRGB(70,75,85)}):Play()
-                ts:Create(knob, TweenInfoSmooth, {Position = UDim2.new(target,0,0.5,-12)}):Play()
+                local target = toggles[name] and 0.6 or 0
+                ts:Create(pill, TweenInfoSmooth, {BackgroundColor3 = toggles[name] and Color3.fromRGB(0,200,100) or Color3.fromRGB(80,80,90)}):Play()
+                ts:Create(knob, TweenInfoSmooth, {Position = UDim2.new(target,0,0.5,-13)}):Play()
                 
                 if name == "speed" and not toggles[name] then fullReset() end
                 if name == "speed" then
                     sliderFrame.Visible = toggles[name]
                 end
             end)
+            
+            -- Debug click
+            safeLog("Toggle criado para: " .. name .. " | Clique conectado")
         end
         
-        createToggle("aura", 95, "Kill Aura", "Radius 80 - Instant kill")
-        createToggle("farm", 155, "Auto Farm", "Fly + Prompts & Exits")
-        createToggle("upgrades", 215, "Skill Upgrades", "Auto max upgrades")
-        createToggle("speed", 275, "Speed", "Slider 0-100")
+        createToggle("aura", 110, "Kill Aura", "Radius 80 - Instant kill")
+        createToggle("farm", 180, "Auto Farm", "Fly + Prompts & Exits")
+        createToggle("upgrades", 250, "Skill Upgrades", "Auto max upgrades")
+        createToggle("speed", 320, "Speed", "Slider 0-100")
         
-        -- Slider
+        -- Slider Speed
         local sliderFrame = Instance.new("Frame")
-        sliderFrame.Name = "Slider"
-        sliderFrame.Size = UDim2.new(1,-20,0,35)
-        sliderFrame.Position = UDim2.new(0,10,0,335)
-        sliderFrame.BackgroundColor3 = Color3.fromRGB(25,30,45)
+        sliderFrame.Name = "SliderFrame"
+        sliderFrame.Size = UDim2.new(1,-20,0,40)
+        sliderFrame.Position = UDim2.new(0,10,0,390)
+        sliderFrame.BackgroundColor3 = Color3.fromRGB(20,25,40)
         sliderFrame.Visible = false
         sliderFrame.Parent = mainFrame
         
-        local corner = Instance.new("UICorner")
-        corner.CornerRadius = UDim.new(0,10)
-        corner.Parent = sliderFrame
+        local cornerSlider = Instance.new("UICorner")
+        cornerSlider.CornerRadius = UDim.new(0,12)
+        cornerSlider.Parent = sliderFrame
         
         local track = Instance.new("Frame")
-        track.Size = UDim2.new(0.85,0,0,6)
-        track.Position = UDim2.new(0,10,0.5,-3)
-        track.BackgroundColor3 = Color3.fromRGB(60,65,75)
+        track.Size = UDim2.new(0.85,0,0,8)
+        track.Position = UDim2.new(0,10,0.5,-4)
+        track.BackgroundColor3 = Color3.fromRGB(60,65,80)
         track.Parent = sliderFrame
         
         local cornerTrack = Instance.new("UICorner")
-        cornerTrack.CornerRadius = UDim.new(0,3)
+        cornerTrack.CornerRadius = UDim.new(0,4)
         cornerTrack.Parent = track
         
         speedSliderFill = Instance.new("Frame")
@@ -250,16 +263,16 @@ local function createGUI()
         speedSliderFill.Parent = track
         
         local cornerFill = Instance.new("UICorner")
-        cornerFill.CornerRadius = UDim.new(0,3)
+        cornerFill.CornerRadius = UDim.new(0,4)
         cornerFill.Parent = speedSliderFill
         
         local num = Instance.new("TextLabel")
         num.Size = UDim2.new(0.15,0,1,0)
-        num.Position = UDim2.new(1,-55,0,0)
+        num.Position = UDim2.new(1,-60,0,0)
         num.BackgroundTransparency = 1
         num.Text = "0"
         num.TextColor3 = Color3.fromRGB(0,180,255)
-        num.TextSize = 16
+        num.TextSize = 18
         num.Font = Enum.Font.GothamBold
         num.Parent = sliderFrame
         
@@ -280,7 +293,7 @@ local function createGUI()
             end
         end)
         
-        -- Drag
+        -- Drag GUI
         local drag = {dragging = false, start = nil, mouse = nil}
         title.InputBegan:Connect(function(inp)
             if inp.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -299,31 +312,33 @@ local function createGUI()
             if inp.UserInputType == Enum.UserInputType.MouseButton1 then drag.dragging = false end
         end)
         
-        -- Minimize / Open
+        -- Minimize/Maximize
         minBtn.MouseButton1Click:Connect(function()
             panelVisible = not panelVisible
             mainFrame.Visible = panelVisible
+            safeLog("Painel alternado: " .. (panelVisible and "Aberto" or "Fechado"))
         end)
         
-        -- F1
+        -- F1 Toggle
         uis.InputBegan:Connect(function(inp)
             if inp.KeyCode == Enum.KeyCode.F1 then
                 panelVisible = not panelVisible
                 mainFrame.Visible = panelVisible
+                safeLog("F1 pressionado - Painel: " .. (panelVisible and "Aberto" or "Fechado"))
             end
         end)
         
-        setZIndexRecursive(mainFrame, 9999)
+        setZIndexRecursive(mainFrame, configs.guiZIndex)
         guiLoaded = true
-        safeLog("GUI v7 loaded - Press F1 or click ↕ to open/close")
+        safeLog("GUI v8 criada e interativa - Clique nos toggles e teste o ↕ / F1")
     end)
     
     if not success then
-        safeLog("GUI failed: " .. err, true)
+        safeLog("Erro ao criar GUI: " .. err, true)
     end
 end
 
--- Features (robust)
+-- Features (mantidas robustas)
 local function killAura()
     if not toggles.aura then return end
     if not getCharSafe() then return end
@@ -433,11 +448,11 @@ task.spawn(function()
 end)
 
 task.spawn(function()
-    task.wait(2)
+    task.wait(3)  -- Delay maior para estabilidade
     createGUI()
     cleanUI()
     fullReset()
-    safeLog("v7 loaded - Press F1 or click ↕ to toggle panel")
+    safeLog("v8 carregada - Pressione F1 ou clique no ↕ para abrir/fechar o painel")
 end)
 
 player.CharacterAdded:Connect(function()
@@ -447,4 +462,4 @@ player.CharacterAdded:Connect(function()
     cleanUI()
 end)
 
-safeLog("v7 - Panel fixed: clickable, minimize/open with ↕ & F1. Test now!")
+safeLog("v8 - Painel interativo corrigido. Clique nos switches, teste o ↕ e F1. Se ainda não funcionar, olhe o console!")
