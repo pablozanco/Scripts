@@ -3,194 +3,238 @@ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
    Name = "Pablo OP - Pixel Blade",
    LoadingTitle = "Carregando...",
-   LoadingSubtitle = "Tudo simples e funcional",
+   LoadingSubtitle = "Invencível + Farm OP",
    ConfigurationSaving = {Enabled = false},
    Discord = {Enabled = false},
    KeySystem = false
 })
+
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+local Lighting = game:GetService("Lighting")
+
+local Player = Players.LocalPlayer
+local Character = Player.Character or Player.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
+local RootPart = Character:WaitForChild("HumanoidRootPart")
+
+-- Remotes
+local remotes = ReplicatedStorage:WaitForChild("remotes")
+local swingRemote = remotes:WaitForChild("swing")
+local onHitRemote = remotes:WaitForChild("onHit")
+local blockRemote = remotes:WaitForChild("block")
+
+-- Vars
+local AutoFarm = false
+local KillAura = false
+local AutoCollect = false
+local NoCooldown = false
+local GodMode = false
+local FlyEnabled = false
+local NoClipEnabled = false
+local InfiniteJump = false
+local Fullbright = false
+local AntiAFK = false
+
+local AuraRange = 300
+local FlySpeed = 50
+local WalkSpeedVal = 50
+local JumpPowerVal = 100
+
+local BV, FlyConn, NoClipConn, SpeedConn, GodConn
+
+-- Update Character
+local function UpdateChar()
+   Character = Player.Character
+   if Character then
+      Humanoid = Character:WaitForChild("Humanoid")
+      RootPart = Character:WaitForChild("HumanoidRootPart")
+      if GodMode then
+         Humanoid.MaxHealth = math.huge
+         Humanoid.Health = math.huge
+      end
+   end
+end
+Player.CharacterAdded:Connect(UpdateChar)
+
+-- Get Enemies
+local function GetEnemies()
+   local enemies = {}
+   if not RootPart then return enemies end
+   for _, obj in pairs(Workspace:GetChildren()) do
+      local hum = obj:FindFirstChild("Humanoid")
+      local hrp = obj:FindFirstChild("HumanoidRootPart")
+      if hum and hum.Health > 0 and hrp and obj ~= Character and not Players:GetPlayerFromCharacter(obj) then
+         local dist = (RootPart.Position - hrp.Position).Magnitude
+         if dist <= AuraRange then
+            table.insert(enemies, {hrp = hrp, hum = hum})
+         end
+      end
+   end
+   return enemies
+end
+
+-- NoClip
+local function ToggleNoClip(state)
+   NoClipEnabled = state
+   if NoClipConn then NoClipConn:Disconnect() end
+   if state then
+      NoClipConn = RunService.Stepped:Connect(function()
+         if Character then
+            for _, part in pairs(Character:GetDescendants()) do
+               if part:IsA("BasePart") then part.CanCollide = false end
+            end
+         end
+      end)
+   end
+end
+
+-- Fly
+local function ToggleFly(state)
+   FlyEnabled = state
+   if BV then BV:Destroy() end
+   if state and RootPart then
+      BV = Instance.new("BodyVelocity")
+      BV.MaxForce = Vector3.new(1e9,1e9,1e9)
+      BV.Velocity = Vector3.new(0,0,0)
+      BV.Parent = RootPart
+      FlyConn = RunService.Heartbeat:Connect(function()
+         if not FlyEnabled then FlyConn:Disconnect() BV:Destroy() return end
+         local cam = Workspace.CurrentCamera
+         local move = Vector3.new()
+         if UserInputService:IsKeyDown(Enum.KeyCode.W) then move += cam.CFrame.LookVector end
+         if UserInputService:IsKeyDown(Enum.KeyCode.S) then move -= cam.CFrame.LookVector end
+         if UserInputService:IsKeyDown(Enum.KeyCode.A) then move -= cam.CFrame.RightVector end
+         if UserInputService:IsKeyDown(Enum.KeyCode.D) then move += cam.CFrame.RightVector end
+         if UserInputService:IsKeyDown(Enum.KeyCode.Space) then move += Vector3.new(0,1,0) end
+         if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then move -= Vector3.new(0,1,0) end
+         BV.Velocity = move * FlySpeed
+      end)
+   end
+end
+
+-- God Mode Real
+local function ToggleGodMode(state)
+   GodMode = state
+   if state then
+      Humanoid.MaxHealth = math.huge
+      Humanoid.Health = math.huge
+      GodConn = RunService.Heartbeat:Connect(function()
+         if Humanoid and Humanoid.Health < Humanoid.MaxHealth then
+            Humanoid.Health = Humanoid.MaxHealth
+         end
+      end)
+   else
+      if GodConn then GodConn:Disconnect() end
+      Humanoid.MaxHealth = 100
+      Humanoid.Health = 100
+   end
+end
+
+-- Infinite Jump
+UserInputService.JumpRequest:Connect(function()
+   if InfiniteJump and Humanoid then
+      Humanoid:ChangeState("Jumping")
+   end
+end)
+
+-- Force Speed/Jump
+RunService.Heartbeat:Connect(function()
+   if Humanoid then
+      Humanoid.WalkSpeed = WalkSpeedVal
+      Humanoid.JumpPower = JumpPowerVal
+   end
+end)
+
+-- Kill Aura Loop
+spawn(function()
+   while true do
+      if KillAura then
+         local enemies = GetEnemies()
+         for _, data in pairs(enemies) do
+            pcall(function()
+               data.hrp.Size = Vector3.new(30, 75, 30)
+               onHitRemote:FireServer(data.hum, 9999999999, {}, 0)
+            end)
+         end
+         task.wait(NoCooldown and 0.01 or 0.2)
+      else
+         task.wait(0.5)
+      end
+   end
+end)
+
+-- No Cooldown Spam
+spawn(function()
+   while true do
+      if NoCooldown then
+         swingRemote:FireServer()
+         task.wait(0.05)
+      else
+         task.wait(0.3)
+      end
+   end
+end)
+
+-- Auto Collect
+spawn(function()
+   while true do
+      if AutoCollect or AutoFarm then
+         for _, drop in pairs(Workspace:GetDescendants()) do
+            if drop:FindFirstChild("ClickDetector") and (drop.Name:lower():find("coin") or drop.Name:lower():find("chest")) then
+               fireclickdetector(drop.ClickDetector)
+            end
+         end
+      end
+      task.wait(0.3)
+   end
+end)
+
+-- Fullbright + Anti-AFK
+RunService.Heartbeat:Connect(function()
+   if Fullbright then
+      Lighting.Brightness = 2
+      Lighting.ClockTime = 14
+      Lighting.FogEnd = 9e9
+      Lighting.GlobalShadows = false
+   end
+   if AntiAFK and tick() % 60 < 0.1 then Humanoid.Jump = true end
+end)
 
 -- Tabs
 local FarmTab = Window:CreateTab("Auto Farm")
 local MoveTab = Window:CreateTab("Movement")
 local VisualTab = Window:CreateTab("Visual")
 
--- Auto Farm Tab
-FarmTab:CreateToggle({
-   Name = "Kill Aura",
-   CurrentValue = false,
-   Callback = function(v)
-      KillAura = v
-   end
+-- Auto Farm
+FarmTab:CreateToggle({Name = "Kill Aura", CurrentValue = false, Callback = function(v) KillAura = v end})
+FarmTab:CreateToggle({Name = "Auto Farm", CurrentValue = false, Callback = function(v) AutoFarm = v end})
+FarmTab:CreateToggle({Name = "Auto Collect", CurrentValue = false, Callback = function(v) AutoCollect = v end})
+FarmTab:CreateToggle({Name = "No Cooldown Spam", CurrentValue = false, Callback = function(v) NoCooldown = v end})
+FarmTab:CreateSlider({Name = "Aura Range", Range = {50, 500}, Increment = 10, CurrentValue = 80, Callback = function(v) AuraRange = v end})
+
+-- Movement
+MoveTab:CreateToggle({Name = "Fly", CurrentValue = false, Callback = function(v) ToggleFly(v) end})
+MoveTab:CreateToggle({Name = "Noclip (Through Walls)", CurrentValue = false, Callback = function(v) ToggleNoClip(v) end})
+MoveTab:CreateToggle({Name = "Infinite Jump", CurrentValue = false, Callback = function(v) InfiniteJump = v end})
+MoveTab:CreateSlider({Name = "Walk Speed", Range = {16, 200}, Increment = 5, CurrentValue = 50, Callback = function(v) WalkSpeedVal = v end})
+MoveTab:CreateSlider({Name = "Jump Power", Range = {50, 300}, Increment = 10, CurrentValue = 100, Callback = function(v) JumpPowerVal = v end})
+
+-- Visual
+VisualTab:CreateToggle({Name = "God Mode (Real Invincibility)", CurrentValue = false, Callback = function(v) ToggleGodMode(v) end})
+VisualTab:CreateToggle({Name = "Remove Sword Delay", CurrentValue = false, Callback = function(v) NoCooldown = v end})
+VisualTab:CreateToggle({Name = "Mob ESP", CurrentValue = false, Callback = function(v) -- Adicione ESP aqui se quiser })
+VisualTab:CreateToggle({Name = "Fullbright", CurrentValue = false, Callback = function(v) Fullbright = v end})
+
+Rayfield:Notify({
+   Title = "Pablo OP Carregado!",
+   Content = "Use os toggles. God Mode real ativado quando ligado.",
+   Duration = 6
 })
-
-FarmTab:CreateToggle({
-   Name = "High Range Aura",
-   CurrentValue = false,
-   Callback = function(v)
-      HighRange = v
-   end
-})
-
-FarmTab:CreateToggle({
-   Name = "Auto Farm",
-   CurrentValue = false,
-   Callback = function(v)
-      AutoFarm = v
-   end
-})
-
-FarmTab:CreateToggle({
-   Name = "Auto Collect",
-   CurrentValue = false,
-   Callback = function(v)
-      AutoCollect = v
-   end
-})
-
-FarmTab:CreateSlider({
-   Name = "Aura Range",
-   Range = {50, 300},
-   Increment = 10,
-   CurrentValue = 80,
-   Callback = function(v)
-      AuraRange = v
-   end
-})
-
--- Movement Tab
-MoveTab:CreateToggle({
-   Name = "Fly",
-   CurrentValue = false,
-   Callback = function(v)
-      ToggleFly(v)
-   end
-})
-
-MoveTab:CreateSlider({
-   Name = "Fly Speed",
-   Range = {20, 150},
-   Increment = 10,
-   CurrentValue = 50,
-   Callback = function(v)
-      FlySpeed = v
-   end
-})
-
-MoveTab:CreateToggle({
-   Name = "Noclip (Through Walls)",
-   CurrentValue = false,
-   Callback = function(v)
-      ToggleNoClip(v)
-   end
-})
-
-MoveTab:CreateToggle({
-   Name = "Infinite Jump",
-   CurrentValue = false,
-   Callback = function(v)
-      InfiniteJump = v
-   end
-})
-
-MoveTab:CreateSlider({
-   Name = "Walk Speed",
-   Range = {16, 200},
-   Increment = 5,
-   CurrentValue = 50,
-   Callback = function(v)
-      WalkSpeedVal = v
-   end
-})
-
-MoveTab:CreateSlider({
-   Name = "Jump Power",
-   Range = {50, 300},
-   Increment = 10,
-   CurrentValue = 100,
-   Callback = function(v)
-      JumpPowerVal = v
-   end
-})
-
--- Visual Tab
-VisualTab:CreateToggle({
-   Name = "Remove Sword Delay",
-   CurrentValue = false,
-   Callback = function(v)
-      NoCooldown = v
-   end
-})
-
-VisualTab:CreateToggle({
-   Name = "Mob ESP",
-   CurrentValue = false,
-   Callback = function(v)
-      MobESP = v
-   end
-})
-
-VisualTab:CreateToggle({
-   Name = "God Mode",
-   CurrentValue = false,
-   Callback = function(v)
-      ToggleGodMode(v)
-   end
-})
-
--- Functions (mantidas do código anterior, simplificadas)
-local function ToggleFly(state)
-   FlyEnabled = state
-   if state then
-      local bv = Instance.new("BodyVelocity")
-      bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
-      bv.Velocity = Vector3.new(0,0,0)
-      bv.Parent = RootPart
-      local bg = Instance.new("BodyGyro")
-      bg.MaxTorque = Vector3.new(1e9, 1e9, 1e9)
-      bg.P = 9e4
-      bg.Parent = RootPart
-      local conn
-      conn = RunService.RenderStepped:Connect(function()
-         if not FlyEnabled then conn:Disconnect() bv:Destroy() bg:Destroy() return end
-         local cam = workspace.CurrentCamera
-         local move = Vector3.new()
-         if uis:IsKeyDown(Enum.KeyCode.W) then move += cam.CFrame.LookVector end
-         if uis:IsKeyDown(Enum.KeyCode.S) then move -= cam.CFrame.LookVector end
-         if uis:IsKeyDown(Enum.KeyCode.A) then move -= cam.CFrame.RightVector end
-         if uis:IsKeyDown(Enum.KeyCode.D) then move += cam.CFrame.RightVector end
-         if uis:IsKeyDown(Enum.KeyCode.Space) then move += Vector3.new(0,1,0) end
-         if uis:IsKeyDown(Enum.KeyCode.LeftShift) then move -= Vector3.new(0,1,0) end
-         bv.Velocity = move.Unit * FlySpeed
-         bg.CFrame = cam.CFrame
-      end)
-   end
-end
-
-local function ToggleNoClip(state)
-   NoClipEnabled = state
-   if state then
-      local conn
-      conn = RunService.Stepped:Connect(function()
-         if not NoClipEnabled then conn:Disconnect() return end
-         for _, part in pairs(Character:GetDescendants()) do
-            if part:IsA("BasePart") then part.CanCollide = false end
-         end
-      end)
-   end
-end
-
-local function ToggleGodMode(state)
-   GodMode = state
-   if state then
-      Humanoid.MaxHealth = math.huge
-      Humanoid.Health = math.huge
-      local conn
-      conn = RunService.Heartbeat:Connect(function()
-         if not GodMode then conn:Disconnect() return end
-         Humanoid.Health = math.huge
-      end)
-   end
-end
 
 UpdateChar()
-print("Pablo OP - Tudo carregado. Use os toggles!")
+print("Pablo OP - Tudo simples e funcionando!")
