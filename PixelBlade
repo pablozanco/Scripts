@@ -3,13 +3,13 @@ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
    Name = "Pablo OP - Pixel Blade",
    LoadingTitle = "Carregando...",
-   LoadingSubtitle = "Otimizado + FPS alto",
+   LoadingSubtitle = "Auto Farm otimizado + preciso",
    ConfigurationSaving = {Enabled = false},
    Discord = {Enabled = false},
    KeySystem = false
 })
 
--- Cache
+-- Cache services e remotes
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -39,7 +39,7 @@ local AuraRange = 300
 local FlySpeed = 50
 local WalkSpeedVal = 16
 local JumpPowerVal = 50
-local FarmHeightOffset = 8  -- Altura acima do mob
+local FarmHeightOffset = 12  -- Aumentado um pouco para evitar dano de chão
 
 local BV, FlyConn, NoClipConn, EspHighlights, HitboxParts = nil, nil, nil, {}, {}
 
@@ -52,18 +52,19 @@ Player.CharacterAdded:Connect(function(newChar)
    Humanoid.JumpPower = JumpPowerVal
 end)
 
--- Get Enemies (super otimizado)
+-- Get Enemies (otimizado + filtro forte contra armadilhas)
 local function GetEnemies()
    local enemies = {}
    local rootPos = RootPart.Position
    local count = 0
    for _, obj in ipairs(Workspace:GetChildren()) do
-      if count >= 20 then break end  -- Limite para FPS
+      if count >= 30 then break end  -- Limite para FPS
       local hum = obj:FindFirstChild("Humanoid")
-      if hum and hum.Health > 0 then
+      if hum and hum.Health > 0 and hum.MaxHealth > 1 then  -- Filtra traps (MaxHealth geralmente 1 ou 0)
          local hrp = obj:FindFirstChild("HumanoidRootPart")
          if hrp and obj ~= Character and not Players:GetPlayerFromCharacter(obj) then
-            if (rootPos - hrp.Position).Magnitude <= AuraRange then
+            local dist = (rootPos - hrp.Position).Magnitude
+            if dist <= AuraRange then
                enemies[#enemies + 1] = {hrp = hrp, hum = hum}
                count = count + 1
             end
@@ -129,26 +130,24 @@ RunService.Heartbeat:Connect(function()
       end
    end
 
-   -- Auto Farm otimizado
+   -- Auto Farm otimizado (acima de cada mob, mata rápido, evita dano)
    if AutoFarm then
-      -- Altura ideal acima do mob mais próximo
       if #enemies > 0 then
          local closest = enemies[1]
          for _, e in ipairs(enemies) do
-            if (RootPart.Position - e.hrp.Position).Magnitude < (RootPart.Position - closest.hrp.Position).Magnitude then
+            local dist = (RootPart.Position - e.hrp.Position).Magnitude
+            if dist < (RootPart.Position - closest.hrp.Position).Magnitude then
                closest = e
             end
          end
-         RootPart.CFrame = closest.hrp.CFrame * CFrame.new(0, FarmHeightOffset, 0)  -- Acima do mob
-      end
-
-      -- Mata rápido
-      for _, data in ipairs(enemies) do
-         onHitRemote:FireServer(data.hum, 9999999999, {}, 0)
-      end
-
-      -- Avança mapa se limpo
-      if #enemies == 0 then
+         -- Posição acima do mob mais próximo (altura ajustada)
+         RootPart.CFrame = closest.hrp.CFrame * CFrame.new(0, FarmHeightOffset, 0)
+         -- Mata rápido
+         for _, data in ipairs(enemies) do
+            onHitRemote:FireServer(data.hum, 9999999999, {}, 0)
+         end
+      else
+         -- Avança mapa se limpo
          for _, p in ipairs(Workspace:GetDescendants()) do
             if p:IsA("ProximityPrompt") and p.Enabled and (p.ActionText:lower():find("enter") or p.ActionText:lower():find("next")) then
                RootPart.CFrame = p.Parent.CFrame * CFrame.new(0, FarmHeightOffset, 0)
@@ -266,7 +265,7 @@ VisualTab:CreateToggle({Name = "Fullbright", CurrentValue = false, Callback = fu
 
 Rayfield:Notify({
    Title = "Pablo OP Otimizado!",
-   Content = "Auto Farm rápido (acima dos mobs, evita dano), Kill Aura constante em todos mapas, sem lag.",
+   Content = "Auto Farm agora fica exatamente acima de cada mob (altura +12), mata rápido, evita dano de armadilhas, FPS alto.",
    Duration = 6
 })
 
