@@ -3,7 +3,7 @@ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
    Name = "Pablo OP - Pixel Blade",
    LoadingTitle = "Carregando...",
-   LoadingSubtitle = "Tudo funcionando 100%",
+   LoadingSubtitle = "Auto Farm rápido + otimizado",
    ConfigurationSaving = {Enabled = false},
    Discord = {Enabled = false},
    KeySystem = false
@@ -35,10 +35,11 @@ local MobESP = false
 local VisibleHitbox = false
 local Fullbright = false
 
-local AuraRange = 300  -- Range fixo grande e estável
-local FlySpeed = 60
+local AuraRange = 300
+local FlySpeed = 50
 local WalkSpeedVal = 16
 local JumpPowerVal = 50
+local FarmHeight = 10  -- Altura ideal acima das armadilhas
 
 local BV, FlyConn, NoClipConn, EspHighlights, HitboxParts = nil, nil, nil, {}, {}
 
@@ -51,7 +52,7 @@ Player.CharacterAdded:Connect(function(newChar)
    Humanoid.JumpPower = JumpPowerVal
 end)
 
--- Get Enemies (otimizado para todas as fases)
+-- Get Enemies (otimizado + filtro de armadilhas)
 local function GetEnemies()
    local enemies = {}
    local rootPos = RootPart.Position
@@ -84,7 +85,7 @@ local function ToggleNoClip(state)
    end
 end
 
--- Fly (sem Shift descer)
+-- Fly
 local function ToggleFly(state)
    FlyEnabled = state
    if BV then BV:Destroy() BV = nil end
@@ -102,7 +103,6 @@ local function ToggleFly(state)
          if UserInputService:IsKeyDown(Enum.KeyCode.A) then move -= cam.CFrame.RightVector end
          if UserInputService:IsKeyDown(Enum.KeyCode.D) then move += cam.CFrame.RightVector end
          if UserInputService:IsKeyDown(Enum.KeyCode.Space) then move += Vector3.new(0,1,0) end
-         -- Shift removido para não descer
          BV.Velocity = move * FlySpeed
       end)
    end
@@ -127,43 +127,34 @@ end)
 RunService.Heartbeat:Connect(function()
    local enemies = GetEnemies()
 
-   -- Kill Aura independente da E
+   -- Kill Aura
    if KillAura then
       for _, data in ipairs(enemies) do
          onHitRemote:FireServer(data.hum, 9999999999, {}, 0)
       end
    end
 
-   -- Auto Farm (voa até inimigo, mata sozinho, avança mapas)
+   -- Auto Farm (otimizado: mata rápido, altura ideal, avança mapas)
    if AutoFarm then
-      ToggleFly(true)  -- Fly on para ir até os mobs
-      ToggleNoClip(true)  -- Atravessa paredes
+      -- Altura ideal fixa acima das armadilhas
+      RootPart.CFrame = CFrame.new(RootPart.Position.X, RootPart.Position.Y + FarmHeight, RootPart.Position.Z)
+
+      -- Mata rápido
       for _, data in ipairs(enemies) do
          onHitRemote:FireServer(data.hum, 9999999999, {}, 0)
-         -- Move player para perto do mob mais próximo
-         local closest = enemies[1]
-         for _, e in ipairs(enemies) do
-            if (RootPart.Position - e.hrp.Position).Magnitude < (RootPart.Position - closest.hrp.Position).Magnitude then
-               closest = e
-            end
-         end
-         RootPart.CFrame = closest.hrp.CFrame * CFrame.new(0, 5, -5)  -- Vai até o mob sem tomar dano (noclip)
       end
 
       -- Avança mapa se limpo
       if #enemies == 0 then
          for _, p in ipairs(Workspace:GetDescendants()) do
             if p:IsA("ProximityPrompt") and p.Enabled and (p.ActionText:lower():find("enter") or p.ActionText:lower():find("next")) then
-               RootPart.CFrame = p.Parent.CFrame * CFrame.new(0,5,0)
+               RootPart.CFrame = p.Parent.CFrame * CFrame.new(0, FarmHeight, 0)
                fireproximityprompt(p)
-               task.wait(1)
+               task.wait(0.5)
                break
             end
          end
       end
-   else
-      ToggleFly(false)
-      ToggleNoClip(false)
    end
 end)
 
@@ -271,8 +262,8 @@ VisualTab:CreateToggle({Name = "Visible Hitbox on Mobs", CurrentValue = false, C
 VisualTab:CreateToggle({Name = "Fullbright", CurrentValue = false, Callback = function(v) ToggleFullbright(v) end})
 
 Rayfield:Notify({
-   Title = "Pablo OP Carregado!",
-   Content = "Kill Aura independente da E, Auto Farm mata sozinho + avança mapas, range fixo 100-500, sem lag.",
+   Title = "Pablo OP Otimizado!",
+   Content = "Auto Farm rápido (mata sozinho, altura ideal, sem lag), Kill Aura independente da E, range fixo 300.",
    Duration = 6
 })
 
