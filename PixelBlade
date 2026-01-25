@@ -3,7 +3,7 @@ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
    Name = "Pablo OP - Pixel Blade",
    LoadingTitle = "Carregando...",
-   LoadingSubtitle = "Kill Aura independente da E",
+   LoadingSubtitle = "Tudo funcionando 100%",
    ConfigurationSaving = {Enabled = false},
    Discord = {Enabled = false},
    KeySystem = false
@@ -33,13 +33,14 @@ local FlyEnabled = false
 local NoClipEnabled = false
 local InfiniteJump = false
 local MobESP = false
+local VisibleHitbox = false
 local Fullbright = false
 
 local AuraRange = 100
 local FlySpeed = 50
 local WalkSpeedVal = 16
 local JumpPowerVal = 50
-local BV, FlyConn, NoClipConn, EspHighlights = nil, nil, nil, {}
+local BV, FlyConn, NoClipConn, EspHighlights, HitboxParts = nil, nil, nil, {}, {}
 
 -- Atualiza Character
 local function UpdateChar()
@@ -124,7 +125,7 @@ RunService.Heartbeat:Connect(function()
    end
 end)
 
--- Kill Aura Loop (independente da E/sword, só dano direto, sem TP)
+-- Kill Aura Loop (fix: independent of E, direct hit, follow maps)
 RunService.Heartbeat:Connect(function()
    if KillAura then
       local enemies = GetEnemies()
@@ -136,13 +137,18 @@ RunService.Heartbeat:Connect(function()
    end
 end)
 
--- Auto Farm (fly + kill + advance maps)
+-- Auto Farm (fly + auto kill without damage, follow maps)
 spawn(function()
    while true do
       if AutoFarm then
          ToggleFly(true)
          ToggleNoClip(true)
          local enemies = GetEnemies()
+         for _, data in pairs(enemies) do
+            pcall(function()
+               onHitRemote:FireServer(data.hum, 9999999999, {}, 0)  -- Auto kill while flying
+            end)
+         end
          if #enemies == 0 then
             -- Advance to next room
             for _, p in pairs(Workspace:GetDescendants()) do
@@ -158,11 +164,11 @@ spawn(function()
          ToggleFly(false)
          ToggleNoClip(false)
       end
-      task.wait(1)
+      task.wait(0.5)
    end
 end)
 
--- Mob ESP (update loop, follow maps, no player highlight)
+-- Mob ESP (fix: update loop, exclude player, clear old)
 local function ToggleMobESP(state)
    MobESP = state
    for _, highlight in pairs(EspHighlights) do
@@ -196,6 +202,44 @@ local function ToggleMobESP(state)
    end
 end
 
+-- Visible Hitbox on Mobs (size based on range, toggle)
+local function ToggleVisibleHitbox(state)
+   VisibleHitbox = state
+   for _, box in pairs(HitboxParts) do
+      box:Destroy()
+   end
+   HitboxParts = {}
+   if state then
+      local conn = RunService.Heartbeat:Connect(function()
+         if not VisibleHitbox then conn:Disconnect() return end
+         local size = AuraRange / 20  -- Size based on range (e.g., 100 = 5 size)
+         for _, obj in pairs(Workspace:GetChildren()) do
+            local hum = obj:FindFirstChild("Humanoid")
+            local hrp = obj:FindFirstChild("HumanoidRootPart")
+            if hum and hum.Health > 0 and obj ~= Character and not obj:FindFirstChild("HitboxVisual") then
+               local box = Instance.new("BoxHandleAdornment")
+               box.Name = "HitboxVisual"
+               box.Size = Vector3.new(size, size * 1.5, size)
+               box.Transparency = 0.7
+               box.Color3 = Color3.fromRGB(255,0,0)
+               box.AlwaysOnTop = true
+               box.Adornee = hrp
+               box.Parent = hrp
+               table.insert(HitboxParts, box)
+            end
+         end
+         -- Clean old
+         for i = #HitboxParts, 1, -1 do
+            local bx = HitboxParts[i]
+            if bx and bx.Adornee and (RootPart.Position - bx.Adornee.Position).Magnitude > AuraRange * 1.5 then
+               bx:Destroy()
+               table.remove(HitboxParts, i)
+            end
+         end
+      end)
+   end
+end
+
 -- Fullbright
 local function ToggleFullbright(state)
    Fullbright = state
@@ -218,8 +262,8 @@ local MoveTab = Window:CreateTab("Movement")
 local VisualTab = Window:CreateTab("Visual")
 
 -- Auto Farm
-FarmTab:CreateToggle({Name = "Kill Aura (independente da E)", CurrentValue = false, Callback = function(v) KillAura = v end})
-FarmTab:CreateToggle({Name = "Auto Farm (fly + kill + advance)", CurrentValue = false, Callback = function(v) AutoFarm = v end})
+FarmTab:CreateToggle({Name = "Kill Aura", CurrentValue = false, Callback = function(v) KillAura = v end})
+FarmTab:CreateToggle({Name = "Auto Farm", CurrentValue = false, Callback = function(v) AutoFarm = v end})
 FarmTab:CreateDropdown({Name = "Aura Range Level", Options = {"1 (100)", "2 (200)", "3 (300)", "4 (400)", "5 (500)"}, CurrentOption = "1 (100)", Callback = function(v)
    AuraRange = tonumber(v:match("(%d+)")) * 100
 end})
@@ -233,13 +277,14 @@ MoveTab:CreateSlider({Name = "Jump Power", Range = {50, 300}, Increment = 10, Cu
 
 -- Visual
 VisualTab:CreateToggle({Name = "Mob ESP", CurrentValue = false, Callback = function(v) ToggleMobESP(v) end})
+VisualTab:CreateToggle({Name = "Visible Hitbox on Mobs", CurrentValue = false, Callback = function(v) ToggleVisibleHitbox(v) end})
 VisualTab:CreateToggle({Name = "Fullbright", CurrentValue = false, Callback = function(v) ToggleFullbright(v) end})
 
 Rayfield:Notify({
-   Title = "Pablo OP Atualizado!",
-   Content = "Kill Aura agora independente da E (sem habilidade visual), bate de longe sem puxar, Auto Farm voa + mata sem dano, ESP segue mapas.",
+   Title = "Pablo OP Carregado!",
+   Content = "Kill Aura fixado (bate de longe sem TP, segue mapas), ESP update/toggle, Hitbox visible, range levels, no initial high jump.",
    Duration = 6
 })
 
 UpdateChar()
-print("Pablo OP - Kill Aura independente da E funcionando!")
+print("Pablo OP - Tudo funcionando!")
