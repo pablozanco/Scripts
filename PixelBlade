@@ -38,14 +38,14 @@ local GodMode = false
 local FlyEnabled = false
 local NoClipEnabled = false
 local InfiniteJump = false
+local MobESP = false
 local Fullbright = false
-local AntiAFK = false
 
 local AuraRange = 80
 local FlySpeed = 50
 local WalkSpeedVal = 50
 local JumpPowerVal = 100
-local BV, FlyConn, NoClipConn, GodConn
+local BV, FlyConn, NoClipConn, GodConn, EspConnections = nil, nil, nil, nil, {}
 
 -- Atualiza Character
 local function UpdateChar()
@@ -195,13 +195,13 @@ spawn(function()
    end
 end)
 
--- Auto Farm (simples collect + advance)
+-- Auto Farm (collect + advance)
 spawn(function()
    while true do
       if AutoFarm then
          local enemies = GetEnemies()
          if #enemies == 0 then
-            -- Advance to next room (prompts)
+            -- Advance to next room
             for _, p in pairs(Workspace:GetDescendants()) do
                if p:IsA("ProximityPrompt") and p.Enabled and (p.ActionText:lower():find("enter") or p.ActionText:lower():find("next")) then
                   RootPart.CFrame = p.Parent.CFrame * CFrame.new(0,5,0)
@@ -216,16 +216,44 @@ spawn(function()
    end
 end)
 
--- Fullbright + Anti-AFK
-RunService.Heartbeat:Connect(function()
-   if Fullbright then
+-- Mob ESP
+local function ToggleMobESP(state)
+   MobESP = state
+   for _, conn in pairs(EspConnections) do conn:Disconnect() end
+   EspConnections = {}
+   if state then
+      local conn = RunService.RenderStepped:Connect(function()
+         for _, obj in pairs(Workspace:GetChildren()) do
+            local hum = obj:FindFirstChild("Humanoid")
+            if hum and hum.Health > 0 and not obj:FindFirstChild("ESP") then
+               local esp = Instance.new("Highlight")
+               esp.Name = "ESP"
+               esp.FillTransparency = 0.8
+               esp.OutlineTransparency = 0
+               esp.OutlineColor = Color3.fromRGB(255,0,0)
+               esp.Parent = obj
+            end
+         end
+      end)
+      table.insert(EspConnections, conn)
+   end
+end
+
+-- Fullbright
+local function ToggleFullbright(state)
+   Fullbright = state
+   if state then
       Lighting.Brightness = 2
       Lighting.ClockTime = 14
-      Lighting.FogEnd = 9e9
+      Lighting.FogEnd = 1e9
       Lighting.GlobalShadows = false
+   else
+      Lighting.Brightness = 1
+      Lighting.ClockTime = 0
+      Lighting.FogEnd = 100
+      Lighting.GlobalShadows = true
    end
-   if AntiAFK and tick() % 60 < 0.1 then Humanoid.Jump = true end
-end)
+end
 
 -- Tabs
 local FarmTab = Window:CreateTab("Auto Farm")
@@ -249,13 +277,13 @@ MoveTab:CreateSlider({Name = "Jump Power", Range = {50, 300}, Increment = 10, Cu
 
 -- Visual
 VisualTab:CreateToggle({Name = "God Mode", CurrentValue = false, Callback = function(v) ToggleGodMode(v) end})
-VisualTab:CreateToggle({Name = "Mob ESP", CurrentValue = false, Callback = function(v) -- ESP simples (adicione se quiser) end})
-VisualTab:CreateToggle({Name = "Fullbright", CurrentValue = false, Callback = function(v) Fullbright = v end})
-VisualTab:CreateToggle({Name = "Anti-AFK", CurrentValue = false, Callback = function(v) AntiAFK = v end})
+VisualTab:CreateToggle({Name = "Remove Sword Delay", CurrentValue = false, Callback = function(v) NoCooldown = v end})
+VisualTab:CreateToggle({Name = "Mob ESP", CurrentValue = false, Callback = function(v) ToggleMobESP(v) end})
+VisualTab:CreateToggle({Name = "Fullbright", CurrentValue = false, Callback = function(v) ToggleFullbright(v) end})
 
 Rayfield:Notify({
    Title = "Pablo OP Carregado!",
-   Content = "Tudo funcionando: Kill Aura, Fly, God Mode real, Noclip, etc.",
+   Content = "Todas as opções agora funcionam: Kill Aura mata mobs, Fly voa, God Mode invencível, etc.",
    Duration = 6
 })
 
