@@ -9,7 +9,6 @@ local Window = Rayfield:CreateWindow({
    KeySystem = false
 })
 
--- Cache services e remotes
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -25,7 +24,6 @@ local Character = Player.Character or Player.CharacterAdded:Wait()
 local Humanoid = Character:WaitForChild("Humanoid")
 local RootPart = Character:WaitForChild("HumanoidRootPart")
 
--- Variáveis
 local KillAura = false
 local AutoFarm = false
 local FlyEnabled = false
@@ -39,42 +37,43 @@ local AuraRange = 300
 local FlySpeed = 50
 local WalkSpeedVal = 16
 local JumpPowerVal = 50
-local FarmHeightOffset = 12  -- Aumentado um pouco para evitar dano de chão
+local FarmHeightOffset = 12
 
 local BV, FlyConn, NoClipConn, EspHighlights, HitboxParts = nil, nil, nil, {}, {}
 
--- Atualiza Character
+local function UpdateChar()
+   if Humanoid then
+      Humanoid.WalkSpeed = WalkSpeedVal
+      Humanoid.JumpPower = JumpPowerVal
+   end
+end
+
 Player.CharacterAdded:Connect(function(newChar)
    Character = newChar
    Humanoid = newChar:WaitForChild("Humanoid")
    RootPart = newChar:WaitForChild("HumanoidRootPart")
-   Humanoid.WalkSpeed = WalkSpeedVal
-   Humanoid.JumpPower = JumpPowerVal
+   UpdateChar()
 end)
 
--- Get Enemies (otimizado + filtro forte contra armadilhas)
 local function GetEnemies()
    local enemies = {}
    local rootPos = RootPart.Position
    local count = 0
    for _, obj in ipairs(Workspace:GetChildren()) do
-      if count >= 30 then break end  -- Limite para FPS
+      if count >= 30 then break end
       local hum = obj:FindFirstChild("Humanoid")
-      if hum and hum.Health > 0 and hum.MaxHealth > 1 then  -- Filtra traps (MaxHealth geralmente 1 ou 0)
-         local hrp = obj:FindFirstChild("HumanoidRootPart")
-         if hrp and obj ~= Character and not Players:GetPlayerFromCharacter(obj) then
-            local dist = (rootPos - hrp.Position).Magnitude
-            if dist <= AuraRange then
-               enemies[#enemies + 1] = {hrp = hrp, hum = hum}
-               count = count + 1
-            end
+      local hrp = obj:FindFirstChild("HumanoidRootPart")
+      if hum and hrp and hum.Health > 0 and hum.MaxHealth > 1 and obj ~= Character and not Players:GetPlayerFromCharacter(obj) then
+         local dist = (rootPos - hrp.Position).Magnitude
+         if dist <= AuraRange then
+            enemies[#enemies + 1] = {hrp = hrp, hum = hum}
+            count += 1
          end
       end
    end
    return enemies
 end
 
--- NoClip
 local function ToggleNoClip(state)
    NoClipEnabled = state
    if NoClipConn then NoClipConn:Disconnect() NoClipConn = nil end
@@ -89,19 +88,18 @@ local function ToggleNoClip(state)
    end
 end
 
--- Fly
 local function ToggleFly(state)
    FlyEnabled = state
    if BV then BV:Destroy() BV = nil end
+   if FlyConn then FlyConn:Disconnect() FlyConn = nil end
    if state and RootPart then
       BV = Instance.new("BodyVelocity")
       BV.MaxForce = Vector3.new(1e9,1e9,1e9)
-      BV.Velocity = Vector3.new(0,0,0)
       BV.Parent = RootPart
       FlyConn = RunService.Heartbeat:Connect(function()
-         if not FlyEnabled then FlyConn:Disconnect() FlyConn = nil BV:Destroy() BV = nil return end
+         if not FlyEnabled then return end
          local cam = workspace.CurrentCamera
-         local move = Vector3.new()
+         local move = Vector3.zero
          if UserInputService:IsKeyDown(Enum.KeyCode.W) then move += cam.CFrame.LookVector end
          if UserInputService:IsKeyDown(Enum.KeyCode.S) then move -= cam.CFrame.LookVector end
          if UserInputService:IsKeyDown(Enum.KeyCode.A) then move -= cam.CFrame.RightVector end
@@ -112,44 +110,36 @@ local function ToggleFly(state)
    end
 end
 
--- Infinite Jump
 UserInputService.JumpRequest:Connect(function()
    if InfiniteJump and Humanoid then
-      Humanoid:ChangeState("Jumping")
+      Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
    end
 end)
 
--- Loop principal otimizado (Kill Aura + Auto Farm)
 RunService.Heartbeat:Connect(function()
    local enemies = GetEnemies()
 
-   -- Kill Aura
    if KillAura then
       for _, data in ipairs(enemies) do
          onHitRemote:FireServer(data.hum, 9999999999, {}, 0)
       end
    end
 
-   -- Auto Farm otimizado (acima de cada mob, mata rápido, evita dano)
    if AutoFarm then
       if #enemies > 0 then
          local closest = enemies[1]
          for _, e in ipairs(enemies) do
-            local dist = (RootPart.Position - e.hrp.Position).Magnitude
-            if dist < (RootPart.Position - closest.hrp.Position).Magnitude then
+            if (RootPart.Position - e.hrp.Position).Magnitude < (RootPart.Position - closest.hrp.Position).Magnitude then
                closest = e
             end
          end
-         -- Posição acima do mob mais próximo (altura ajustada)
          RootPart.CFrame = closest.hrp.CFrame * CFrame.new(0, FarmHeightOffset, 0)
-         -- Mata rápido
          for _, data in ipairs(enemies) do
             onHitRemote:FireServer(data.hum, 9999999999, {}, 0)
          end
       else
-         -- Avança mapa se limpo
          for _, p in ipairs(Workspace:GetDescendants()) do
-            if p:IsA("ProximityPrompt") and p.Enabled and (p.ActionText:lower():find("enter") or p.ActionText:lower():find("next")) then
+            if p:IsA("ProximityPrompt") and p.Enabled then
                RootPart.CFrame = p.Parent.CFrame * CFrame.new(0, FarmHeightOffset, 0)
                fireproximityprompt(p)
                task.wait(0.5)
@@ -160,50 +150,41 @@ RunService.Heartbeat:Connect(function()
    end
 end)
 
--- Mob ESP
 local function ToggleMobESP(state)
    MobESP = state
    for _, hl in ipairs(EspHighlights) do hl:Destroy() end
    EspHighlights = {}
    if state then
-      local conn = RunService.Heartbeat:Connect(function()
-         if not MobESP then conn:Disconnect() return end
+      RunService.Heartbeat:Connect(function()
+         if not MobESP then return end
          for _, obj in ipairs(Workspace:GetChildren()) do
             local hum = obj:FindFirstChild("Humanoid")
-            if hum and hum.Health > 0 and obj ~= Character and not obj:FindFirstChild("ESPHighlight") then
-               local highlight = Instance.new("Highlight")
-               highlight.Name = "ESPHighlight"
-               highlight.FillTransparency = 0.8
-               highlight.OutlineTransparency = 0
-               highlight.OutlineColor = Color3.fromRGB(255,0,0)
-               highlight.Parent = obj
-               EspHighlights[#EspHighlights+1] = highlight
-            end
-         end
-         for i = #EspHighlights, 1, -1 do
-            local hl = EspHighlights[i]
-            if hl.Parent and (RootPart.Position - hl.Parent.PrimaryPart.Position).Magnitude > AuraRange * 1.5 then
-               hl:Destroy()
-               table.remove(EspHighlights, i)
+            local hrp = obj:FindFirstChild("HumanoidRootPart")
+            if hum and hrp and hum.Health > 0 and not obj:FindFirstChild("ESPHighlight") then
+               local h = Instance.new("Highlight")
+               h.Name = "ESPHighlight"
+               h.FillTransparency = 0.8
+               h.OutlineColor = Color3.fromRGB(255,0,0)
+               h.Parent = obj
+               EspHighlights[#EspHighlights+1] = h
             end
          end
       end)
    end
 end
 
--- Visible Hitbox
 local function ToggleVisibleHitbox(state)
    VisibleHitbox = state
-   for _, bx in ipairs(HitboxParts) do bx:Destroy() end
+   for _, b in ipairs(HitboxParts) do b:Destroy() end
    HitboxParts = {}
    if state then
-      local conn = RunService.Heartbeat:Connect(function()
-         if not VisibleHitbox then conn:Disconnect() return end
+      RunService.Heartbeat:Connect(function()
+         if not VisibleHitbox then return end
          local size = AuraRange / 20
          for _, obj in ipairs(Workspace:GetChildren()) do
             local hum = obj:FindFirstChild("Humanoid")
             local hrp = obj:FindFirstChild("HumanoidRootPart")
-            if hum and hum.Health > 0 and obj ~= Character and not obj:FindFirstChild("HitboxVisual") then
+            if hum and hrp and hum.Health > 0 and not hrp:FindFirstChild("HitboxVisual") then
                local box = Instance.new("BoxHandleAdornment")
                box.Name = "HitboxVisual"
                box.Size = Vector3.new(size, size * 1.5, size)
@@ -215,18 +196,10 @@ local function ToggleVisibleHitbox(state)
                HitboxParts[#HitboxParts+1] = box
             end
          end
-         for i = #HitboxParts, 1, -1 do
-            local bx = HitboxParts[i]
-            if bx.Adornee and (RootPart.Position - bx.Adornee.Position).Magnitude > AuraRange * 1.5 then
-               bx:Destroy()
-               table.remove(HitboxParts, i)
-            end
-         end
       end)
    end
 end
 
--- Fullbright
 local function ToggleFullbright(state)
    Fullbright = state
    if state then
@@ -242,32 +215,27 @@ local function ToggleFullbright(state)
    end
 end
 
--- Tabs
 local FarmTab = Window:CreateTab("Auto Farm")
 local MoveTab = Window:CreateTab("Movement")
 local VisualTab = Window:CreateTab("Visual")
 
--- Auto Farm
-FarmTab:CreateToggle({Name = "Kill Aura", CurrentValue = false, Callback = function(v) KillAura = v end})
-FarmTab:CreateToggle({Name = "Auto Farm", CurrentValue = false, Callback = function(v) AutoFarm = v end})
+FarmTab:CreateToggle({Name="Kill Aura",CurrentValue=false,Callback=function(v)KillAura=v end})
+FarmTab:CreateToggle({Name="Auto Farm",CurrentValue=false,Callback=function(v)AutoFarm=v end})
 
--- Movement
-MoveTab:CreateToggle({Name = "Fly", CurrentValue = false, Callback = function(v) ToggleFly(v) end})
-MoveTab:CreateToggle({Name = "Noclip", CurrentValue = false, Callback = function(v) ToggleNoClip(v) end})
-MoveTab:CreateToggle({Name = "Infinite Jump", CurrentValue = false, Callback = function(v) InfiniteJump = v end})
-MoveTab:CreateSlider({Name = "Walk Speed", Range = {16, 200}, Increment = 5, CurrentValue = 16, Callback = function(v) WalkSpeedVal = v end})
-MoveTab:CreateSlider({Name = "Jump Power", Range = {50, 300}, Increment = 10, CurrentValue = 50, Callback = function(v) JumpPowerVal = v end})
+MoveTab:CreateToggle({Name="Fly",CurrentValue=false,Callback=function(v)ToggleFly(v) end})
+MoveTab:CreateToggle({Name="Noclip",CurrentValue=false,Callback=function(v)ToggleNoClip(v) end})
+MoveTab:CreateToggle({Name="Infinite Jump",CurrentValue=false,Callback=function(v)InfiniteJump=v end})
+MoveTab:CreateSlider({Name="Walk Speed",Range={16,200},Increment=5,CurrentValue=16,Callback=function(v)WalkSpeedVal=v UpdateChar() end})
+MoveTab:CreateSlider({Name="Jump Power",Range={50,300},Increment=10,CurrentValue=50,Callback=function(v)JumpPowerVal=v UpdateChar() end})
 
--- Visual
-VisualTab:CreateToggle({Name = "Mob ESP", CurrentValue = false, Callback = function(v) ToggleMobESP(v) end})
-VisualTab:CreateToggle({Name = "Visible Hitbox on Mobs", CurrentValue = false, Callback = function(v) ToggleVisibleHitbox(v) end})
-VisualTab:CreateToggle({Name = "Fullbright", CurrentValue = false, Callback = function(v) ToggleFullbright(v) end})
+VisualTab:CreateToggle({Name="Mob ESP",CurrentValue=false,Callback=function(v)ToggleMobESP(v) end})
+VisualTab:CreateToggle({Name="Visible Hitbox on Mobs",CurrentValue=false,Callback=function(v)ToggleVisibleHitbox(v) end})
+VisualTab:CreateToggle({Name="Fullbright",CurrentValue=false,Callback=function(v)ToggleFullbright(v) end})
 
 Rayfield:Notify({
-   Title = "Pablo OP Otimizado!",
-   Content = "Auto Farm agora fica exatamente acima de cada mob (altura +12), mata rápido, evita dano de armadilhas, FPS alto.",
-   Duration = 6
+   Title="Pablo OP",
+   Content="Script carregado com correções aplicadas.",
+   Duration=5
 })
 
-UpdateChar()
-print("Pablo OP - Otimizado e funcionando!")
+print("Pablo OP - Script corrigido")
