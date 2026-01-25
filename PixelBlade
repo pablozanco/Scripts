@@ -78,8 +78,8 @@ local function createGUI()
     gui.Parent = player:WaitForChild("PlayerGui", 10)
     
     mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0, 320, 0, 280)  -- Mais largo, menos alto
-    mainFrame.Position = UDim2.new(1, -340, 0.3, 0)  -- Direita da tela
+    mainFrame.Size = UDim2.new(0, 340, 0, 280)  -- Largura maior, altura menor (minimalista)
+    mainFrame.Position = UDim2.new(1, -360, 0.3, 0)  -- Direita da tela, centralizado verticalmente
     mainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 20)
     mainFrame.BorderSizePixel = 0
     mainFrame.Visible = true
@@ -139,17 +139,17 @@ local function createGUI()
     
     -- Auto Farm Section
     local autoFarmSec = Instance.new("Frame")
-    autoFarmSec.Size = UDim2.new(0.9,0,0,100)
-    autoFarmSec.Position = UDim2.new(0.05,0,0.12,0)
+    autoFarmSec.Size = UDim2.new(0.48, -10, 0.9, -50)
+    autoFarmSec.Position = UDim2.new(0.01, 5, 0.12, 0)
     autoFarmSec.BackgroundColor3 = Color3.fromRGB(18,22,35)
     autoFarmSec.Parent = mainFrame
     
     local cornerAF = Instance.new("UICorner")
-    cornerAF.CornerRadius = UDim.new(0,10)
+    cornerAF.CornerRadius = UDim.new(0,12)
     cornerAF.Parent = autoFarmSec
     
     local afTitle = Instance.new("TextLabel")
-    afTitle.Size = UDim2.new(1,0,0,30)
+    afTitle.Size = UDim2.new(1,0,0,35)
     afTitle.BackgroundTransparency = 1
     afTitle.Text = "Auto Farm"
     afTitle.TextColor3 = Color3.fromRGB(100,200,255)
@@ -159,17 +159,17 @@ local function createGUI()
     
     -- Movement Section
     local movementSec = Instance.new("Frame")
-    movementSec.Size = UDim2.new(0.9,0,0,100)
-    movementSec.Position = UDim2.new(0.05,0,0.45,0)
+    movementSec.Size = UDim2.new(0.48, -10, 0.9, -50)
+    movementSec.Position = UDim2.new(0.51, 5, 0.12, 0)
     movementSec.BackgroundColor3 = Color3.fromRGB(18,22,35)
     movementSec.Parent = mainFrame
     
     local cornerM = Instance.new("UICorner")
-    cornerM.CornerRadius = UDim.new(0,10)
+    cornerM.CornerRadius = UDim.new(0,12)
     cornerM.Parent = movementSec
     
     local mTitle = Instance.new("TextLabel")
-    mTitle.Size = UDim2.new(1,0,0,30)
+    mTitle.Size = UDim2.new(1,0,0,35)
     mTitle.BackgroundTransparency = 1
     mTitle.Text = "Movement"
     mTitle.TextColor3 = Color3.fromRGB(100,200,255)
@@ -179,17 +179,17 @@ local function createGUI()
     
     -- Visual Section
     local visualSec = Instance.new("Frame")
-    visualSec.Size = UDim2.new(0.9,0,0,100)
-    visualSec.Position = UDim2.new(0.05,0,0.78,0)
+    visualSec.Size = UDim2.new(0.48, -10, 0.9, -50)
+    visualSec.Position = UDim2.new(0.01, 5, 0.5, 0)
     visualSec.BackgroundColor3 = Color3.fromRGB(18,22,35)
     visualSec.Parent = mainFrame
     
     local cornerV = Instance.new("UICorner")
-    cornerV.CornerRadius = UDim.new(0,10)
+    cornerV.CornerRadius = UDim.new(0,12)
     cornerV.Parent = visualSec
     
     local vTitle = Instance.new("TextLabel")
-    vTitle.Size = UDim2.new(1,0,0,30)
+    vTitle.Size = UDim2.new(1,0,0,35)
     vTitle.BackgroundTransparency = 1
     vTitle.Text = "Visual"
     vTitle.TextColor3 = Color3.fromRGB(100,200,255)
@@ -237,19 +237,24 @@ local function createGUI()
         
         pill.MouseButton1Click:Connect(function()
             toggles[name] = not toggles[name]
-            ts:Create(pill, tweenInfoSmooth, {BackgroundColor3 = toggles[name] and Color3.fromRGB(0,190,90) or Color3.fromRGB(80,80,90)}):Play()
-            ts:Create(knob, tweenInfoSmooth, {Position = UDim2.new(toggles[name] and 0.58,0,0.5,-11)}):Play()
+            ts:Create(pill, tweenSmooth, {BackgroundColor3 = toggles[name] and Color3.fromRGB(0,190,90) or Color3.fromRGB(80,80,90)}):Play()
+            ts:Create(knob, tweenSmooth, {Position = UDim2.new(toggles[name] and 0.58,0,0.5,-11)}):Play()
         end)
     end
     
-    createToggle(autoFarmSection, "killAura", 40, "Kill Aura")
-    createToggle(autoFarmSection, "highRange", 80, "High Range Aura")
+    -- Auto Farm Toggles
+    createToggle(autoFarmSec, "killAura", 40, "Kill Aura")
+    createToggle(autoFarmSec, "highRange", 85, "High Range Aura")
+    createToggle(autoFarmSec, "autoFarm", 130, "Auto Farm")
     
-    createToggle(movementSection, "fly", 40, "Fly")
-    createToggle(movementSection, "noclip", 80, "Noclip (Through Walls)")
+    -- Movement Toggles
+    createToggle(movementSec, "fly", 40, "Fly")
+    createToggle(movementSec, "noclip", 85, "Noclip")
+    createToggle(movementSec, "infiniteJump", 130, "Infinite Jump")
     
-    createToggle(visualSection, "removeSwordDelay", 40, "No Sword Delay")
-    createToggle(visualSection, "mobESP", 80, "Mob ESP")
+    -- Visual Toggles
+    createToggle(visualSec, "removeSwordDelay", 40, "No Sword Delay")
+    createToggle(visualSec, "mobESP", 85, "Mob ESP")
     
     -- Drag
     local drag = {dragging = false, start = nil, mouse = nil}
@@ -284,7 +289,7 @@ local function createGUI()
     
     setZIndexRecursive(mainFrame, configs.guiZIndex)
     guiLoaded = true
-    safeLog("GUI v10 loaded - Right-aligned, minimal, sections with options. Test clicks and ↕ / X")
+    safeLog("GUI v10 loaded - Right-aligned, minimal, sections with options")
 end
 
 -- Features
