@@ -35,13 +35,14 @@ local FlyEnabled = false
 local NoClipEnabled = false
 local InfiniteJump = false
 local MobESP = false
+local VisibleHitbox = false
 local Fullbright = false
 
-local AuraRange = 80
+local AuraRange = 100
 local FlySpeed = 50
 local WalkSpeedVal = 16  -- Default normal
 local JumpPowerVal = 50  -- Default normal
-local BV, FlyConn, NoClipConn, EspHighlights = nil, nil, nil, {}
+local BV, FlyConn, NoClipConn, EspHighlights, HitboxParts = nil, nil, nil, {}, {}
 
 -- Atualiza Character
 local function UpdateChar()
@@ -126,28 +127,25 @@ RunService.Heartbeat:Connect(function()
    end
 end)
 
--- Kill Aura Loop (fix: no TP to avoid damage, direct hit remote)
-spawn(function()
-   while true do
-      if KillAura then
-         local enemies = GetEnemies()
-         for _, data in pairs(enemies) do
-            pcall(function()
-               swingRemote:FireServer()
-               onHitRemote:FireServer(data.hum, 9999999999, {}, 0)
-            end)
-         end
-         task.wait(0.2)
-      else
-         task.wait(0.5)
+-- Kill Aura Loop (fix: direct hit without TP, update enemies every tick, follow maps)
+RunService.Heartbeat:Connect(function()
+   if KillAura then
+      local enemies = GetEnemies()
+      for _, data in pairs(enemies) do
+         pcall(function()
+            swingRemote:FireServer()
+            onHitRemote:FireServer(data.hum, 9999999999, {}, 0)
+         end)
       end
    end
 end)
 
--- Auto Farm (advance rooms, safe)
+-- Auto Farm (fly + kill without damage, follow maps)
 spawn(function()
    while true do
       if AutoFarm then
+         ToggleFly(true)  -- Fly on for auto farm
+         ToggleNoClip(true)  -- Noclip to avoid damage
          local enemies = GetEnemies()
          if #enemies == 0 then
             -- Advance to next room
@@ -160,13 +158,54 @@ spawn(function()
                end
             end
          end
+      else
+         ToggleFly(false)
+         ToggleNoClip(false)
       end
       task.wait(1)
    end
 end)
 
--- Mob ESP (fix: update loop, exclude player, clear old, toggle on/off, more colors)
-local function ToggleMobESP(state, color)
+-- Visible Hitbox on Mobs (size based on range, toggle)
+local function ToggleVisibleHitbox(state)
+   VisibleHitbox = state
+   for _, box in pairs(HitboxParts) do
+      box:Destroy()
+   end
+   HitboxParts = {}
+   if state then
+      local conn = RunService.Heartbeat:Connect(function()
+         if not VisibleHitbox then conn:Disconnect() return end
+         local size = AuraRange / 10  -- Size based on range (e.g., 80 range = 8 size)
+         for _, obj in pairs(Workspace:GetChildren()) do
+            local hum = obj:FindFirstChild("Humanoid")
+            local hrp = obj:FindFirstChild("HumanoidRootPart")
+            if hum and hum.Health > 0 and obj ~= Character and not obj:FindFirstChild("HitboxVisual") then
+               local box = Instance.new("BoxHandleAdornment")
+               box.Name = "HitboxVisual"
+               box.Size = Vector3.new(size, size, size)
+               box.Transparency = 0.7
+               box.Color3 = Color3.fromRGB(255,0,0)
+               box.AlwaysOnTop = true
+               box.Adornee = hrp
+               box.Parent = hrp
+               table.insert(HitboxParts, box)
+            end
+         end
+         -- Clean old
+         for i = #HitboxParts, 1, -1 do
+            local bx = HitboxParts[i]
+            if bx and bx.Adornee and (RootPart.Position - bx.Adornee.Position).Magnitude > AuraRange * 1.5 then
+               bx:Destroy()
+               table.remove(HitboxParts, i)
+            end
+         end
+      end)
+   end
+end
+
+-- Mob ESP (fix: update loop, exclude player, clear old)
+local function ToggleMobESP(state)
    MobESP = state
    for _, highlight in pairs(EspHighlights) do
       highlight:Destroy()
@@ -182,7 +221,7 @@ local function ToggleMobESP(state, color)
                highlight.Name = "ESPHighlight"
                highlight.FillTransparency = 0.8
                highlight.OutlineTransparency = 0
-               highlight.OutlineColor = color
+               highlight.OutlineColor = Color3.fromRGB(255,0,0)
                highlight.Parent = obj
                table.insert(EspHighlights, highlight)
             end
@@ -190,7 +229,7 @@ local function ToggleMobESP(state, color)
          -- Clean old mobs far away
          for i = #EspHighlights, 1, -1 do
             local hl = EspHighlights[i]
-            if hl and hl.Parent and (RootPart.Position - hl.Parent.PrimaryPart.Position).Magnitude > 200 then
+            if hl and hl.Parent and (RootPart.Position - hl.Parent.PrimaryPart.Position).Magnitude > AuraRange * 1.5 then
                hl:Destroy()
                table.remove(EspHighlights, i)
             end
@@ -223,8 +262,8 @@ local VisualTab = Window:CreateTab("Visual")
 -- Auto Farm
 FarmTab:CreateToggle({Name = "Kill Aura", CurrentValue = false, Callback = function(v) KillAura = v end})
 FarmTab:CreateToggle({Name = "Auto Farm", CurrentValue = false, Callback = function(v) AutoFarm = v end})
-FarmTab:CreateDropdown({Name = "Aura Range Level", Options = {"1 (80)", "2 (160)", "3 (240)", "4 (320)", "5 (400)"}, CurrentOption = "1 (80)", Callback = function(v)
-   AuraRange = tonumber(v:match("(%d+)")) * 80
+FarmTab:CreateDropdown({Name = "Aura Range Level", Options = {"1 (100)", "2 (200)", "3 (300)", "4 (400)", "5 (500)"}, CurrentOption = "1 (100)", Callback = function(v)
+   AuraRange = tonumber(v:match("(%d+)")) * 100
 end})
 
 -- Movement
@@ -235,12 +274,13 @@ MoveTab:CreateSlider({Name = "Walk Speed", Range = {16, 200}, Increment = 5, Cur
 MoveTab:CreateSlider({Name = "Jump Power", Range = {50, 300}, Increment = 10, CurrentValue = 50, Callback = function(v) JumpPowerVal = v end})
 
 -- Visual
-VisualTab:CreateToggle({Name = "Mob ESP", CurrentValue = false, Callback = function(v) ToggleMobESP(v, EspColor) end})
+VisualTab:CreateToggle({Name = "Mob ESP", CurrentValue = false, Callback = function(v) ToggleMobESP(v) end})
+VisualTab:CreateToggle({Name = "Visible Hitbox on Mobs", CurrentValue = false, Callback = function(v) ToggleVisibleHitbox(v) end})
 VisualTab:CreateToggle({Name = "Fullbright", CurrentValue = false, Callback = function(v) ToggleFullbright(v) end})
 
 Rayfield:Notify({
    Title = "Pablo OP Carregado!",
-   Content = "Kill Aura fixado (sem TP, bate de longe), ESP update/cor toggle, no initial high jump, etc.",
+   Content = "Kill Aura fixado (bate de longe sem TP, segue mapas), ESP update/toggle, Hitbox visible, range levels, no initial high jump.",
    Duration = 6
 })
 
