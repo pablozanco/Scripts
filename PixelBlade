@@ -11,7 +11,6 @@ local toggles = {
     killAura = false,
     highRange = false,
     autoFarm = false,
-    autoCollect = false,
     fly = false,
     noclip = false,
     infiniteJump = false,
@@ -78,8 +77,8 @@ local function createGUI()
     gui.Parent = player:WaitForChild("PlayerGui", 10)
     
     mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0, 340, 0, 280)  -- Largura maior, altura menor (minimalista)
-    mainFrame.Position = UDim2.new(1, -360, 0.3, 0)  -- Direita da tela, centralizado verticalmente
+    mainFrame.Size = UDim2.new(0, 380, 0, 220)  -- Largura maior, altura menor
+    mainFrame.Position = UDim2.new(1, -400, 0.3, 0)  -- Direita da tela
     mainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 20)
     mainFrame.BorderSizePixel = 0
     mainFrame.Visible = true
@@ -137,10 +136,10 @@ local function createGUI()
     cornerMin.CornerRadius = UDim.new(0,12)
     cornerMin.Parent = minBtn
     
-    -- Auto Farm Section
+    -- Seções lado a lado
     local autoFarmSec = Instance.new("Frame")
-    autoFarmSec.Size = UDim2.new(0.48, -10, 0.9, -50)
-    autoFarmSec.Position = UDim2.new(0.01, 5, 0.12, 0)
+    autoFarmSec.Size = UDim2.new(0.31, -10, 0.8, -50)
+    autoFarmSec.Position = UDim2.new(0.02, 0, 0.15, 0)
     autoFarmSec.BackgroundColor3 = Color3.fromRGB(18,22,35)
     autoFarmSec.Parent = mainFrame
     
@@ -157,10 +156,9 @@ local function createGUI()
     afTitle.Font = Enum.Font.GothamBold
     afTitle.Parent = autoFarmSec
     
-    -- Movement Section
     local movementSec = Instance.new("Frame")
-    movementSec.Size = UDim2.new(0.48, -10, 0.9, -50)
-    movementSec.Position = UDim2.new(0.51, 5, 0.12, 0)
+    movementSec.Size = UDim2.new(0.31, -10, 0.8, -50)
+    movementSec.Position = UDim2.new(0.34, 0, 0.15, 0)
     movementSec.BackgroundColor3 = Color3.fromRGB(18,22,35)
     movementSec.Parent = mainFrame
     
@@ -177,10 +175,9 @@ local function createGUI()
     mTitle.Font = Enum.Font.GothamBold
     mTitle.Parent = movementSec
     
-    -- Visual Section
     local visualSec = Instance.new("Frame")
-    visualSec.Size = UDim2.new(0.48, -10, 0.9, -50)
-    visualSec.Position = UDim2.new(0.01, 5, 0.5, 0)
+    visualSec.Size = UDim2.new(0.31, -10, 0.8, -50)
+    visualSec.Position = UDim2.new(0.66, 0, 0.15, 0)
     visualSec.BackgroundColor3 = Color3.fromRGB(18,22,35)
     visualSec.Parent = mainFrame
     
@@ -242,17 +239,17 @@ local function createGUI()
         end)
     end
     
-    -- Auto Farm Toggles
+    -- Auto Farm
     createToggle(autoFarmSec, "killAura", 40, "Kill Aura")
-    createToggle(autoFarmSec, "highRange", 85, "High Range Aura")
+    createToggle(autoFarmSec, "highRange", 85, "High Range")
     createToggle(autoFarmSec, "autoFarm", 130, "Auto Farm")
     
-    -- Movement Toggles
+    -- Movement
     createToggle(movementSec, "fly", 40, "Fly")
     createToggle(movementSec, "noclip", 85, "Noclip")
     createToggle(movementSec, "infiniteJump", 130, "Infinite Jump")
     
-    -- Visual Toggles
+    -- Visual
     createToggle(visualSec, "removeSwordDelay", 40, "No Sword Delay")
     createToggle(visualSec, "mobESP", 85, "Mob ESP")
     
