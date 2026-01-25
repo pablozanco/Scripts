@@ -4,7 +4,7 @@ local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 local Window = Rayfield:CreateWindow({
    Name = "Pablo OP - PixelBlade",
    LoadingTitle = "Carregando",
-   LoadingSubtitle = "Auto Farm Estável + Hit Real",
+   LoadingSubtitle = "Auto Farm Hover REAL",
    KeySystem = false
 })
 
@@ -36,11 +36,15 @@ local AuraRange = 300
 local FlySpeed = 70
 local WalkSpeedVal = 16
 local JumpPowerVal = 50
-local FarmOffset = Vector3.new(0, 0, -3)
+local HoverHeight = 6
 local HitDelay = 0.25
 
-local BV, BG, NoClipConn
+-- CONTROLES
+local BV, BG
+local AlignPos, AlignOri
+local NoClipConn
 local EspList, HitboxList = {}, {}
+local CurrentTarget = nil
 
 -- UPDATE CHARACTER
 local function UpdateChar()
@@ -50,6 +54,13 @@ local function UpdateChar()
 
    Humanoid.WalkSpeed = WalkSpeedVal
    Humanoid.JumpPower = JumpPowerVal
+
+   -- desativa estados que causam pulo
+   for _, state in ipairs(Enum.HumanoidStateType:GetEnumItems()) do
+      Humanoid:SetStateEnabled(state, false)
+   end
+   Humanoid:SetStateEnabled(Enum.HumanoidStateType.Physics, true)
+   Humanoid:ChangeState(Enum.HumanoidStateType.Physics)
 end
 
 UpdateChar()
@@ -71,6 +82,67 @@ local function GetEnemies()
    return list
 end
 
+-- HOVER REAL (SEM SUBIR/DESCER)
+local function EnableHover(targetHRP)
+   if AlignPos then return end
+
+   AlignPos = Instance.new("AlignPosition", RootPart)
+   AlignPos.MaxForce = 1e9
+   AlignPos.Responsiveness = 200
+
+   AlignOri = Instance.new("AlignOrientation", RootPart)
+   AlignOri.MaxTorque = 1e9
+   AlignOri.Responsiveness = 200
+
+   local att0 = Instance.new("Attachment", RootPart)
+   local att1 = Instance.new("Attachment", targetHRP)
+
+   AlignPos.Attachment0 = att0
+   AlignPos.Attachment1 = att1
+   AlignPos.Position = Vector3.new(0, HoverHeight, 0)
+
+   AlignOri.Attachment0 = att0
+   AlignOri.Attachment1 = att1
+end
+
+local function DisableHover()
+   if AlignPos then AlignPos:Destroy() AlignPos = nil end
+   if AlignOri then AlignOri:Destroy() AlignOri = nil end
+end
+
+-- AUTO FARM PIXELBLADE (SEM IOIÔ)
+task.spawn(function()
+   while task.wait(HitDelay) do
+      if not AutoFarm then
+         DisableHover()
+         CurrentTarget = nil
+         continue
+      end
+
+      local enemies = GetEnemies()
+      if #enemies > 0 then
+         local target = enemies[1]
+         if CurrentTarget ~= target then
+            DisableHover()
+            EnableHover(target.hrp)
+            CurrentTarget = target
+         end
+         onHitRemote:FireServer(target.hum, 9999999, {}, 0)
+      end
+   end
+end)
+
+-- KILL AURA
+task.spawn(function()
+   while task.wait(0.4) do
+      if KillAura then
+         for _, e in ipairs(GetEnemies()) do
+            onHitRemote:FireServer(e.hum, 9999999, {}, 0)
+         end
+      end
+   end
+end)
+
 -- NOCLIP
 local function ToggleNoClip(state)
    NoClipEnabled = state
@@ -84,7 +156,7 @@ local function ToggleNoClip(state)
    end
 end
 
--- FLY
+-- FLY MANUAL
 local function ToggleFly(state)
    FlyEnabled = state
    if not state then
@@ -111,56 +183,12 @@ local function ToggleFly(state)
       if UserInputService:IsKeyDown(Enum.KeyCode.D) then move += cam.CFrame.RightVector end
       if UserInputService:IsKeyDown(Enum.KeyCode.Space) then move += Vector3.new(0,1,0) end
 
-      if move.Magnitude > 0 then
-         BV.Velocity = move.Unit * FlySpeed
-      else
-         BV.Velocity = Vector3.zero
-      end
-
+      BV.Velocity = move.Magnitude > 0 and move.Unit * FlySpeed or Vector3.zero
       BG.CFrame = cam.CFrame
    end)
 end
 
--- INFINITE JUMP
-UserInputService.JumpRequest:Connect(function()
-   if InfiniteJump then
-      Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-   end
-end)
-
--- AUTO FARM PIXELBLADE
-task.spawn(function()
-   while task.wait(HitDelay) do
-      if not AutoFarm then
-         if RootPart then RootPart.Anchored = false end
-         continue
-      end
-
-      local enemies = GetEnemies()
-      if #enemies > 0 then
-         local target = enemies[1]
-
-         Humanoid:ChangeState(Enum.HumanoidStateType.Physics)
-         RootPart.Anchored = true
-
-         RootPart.CFrame = target.hrp.CFrame * CFrame.new(FarmOffset)
-         onHitRemote:FireServer(target.hum, 9999999, {}, 0)
-      end
-   end
-end)
-
--- KILL AURA
-task.spawn(function()
-   while task.wait(0.35) do
-      if KillAura then
-         for _, e in ipairs(GetEnemies()) do
-            onHitRemote:FireServer(e.hum, 9999999, {}, 0)
-         end
-      end
-   end
-end)
-
--- MOB ESP
+-- ESP
 local function ToggleMobESP(state)
    MobESP = state
    for _, e in ipairs(EspList) do e:Destroy() end
@@ -184,7 +212,7 @@ local function ToggleMobESP(state)
    end
 end
 
--- HITBOX VISUAL
+-- HITBOX
 local function ToggleVisibleHitbox(state)
    VisibleHitbox = state
    for _, h in ipairs(HitboxList) do h:Destroy() end
@@ -214,7 +242,6 @@ end
 
 -- FULLBRIGHT
 local function ToggleFullbright(state)
-   Fullbright = state
    if state then
       Lighting.Brightness = 2
       Lighting.ClockTime = 14
@@ -250,6 +277,6 @@ VisualTab:CreateToggle({Name="Fullbright", Callback=ToggleFullbright})
 
 Rayfield:Notify({
    Title="Pablo OP",
-   Content="PixelBlade Auto Farm corrigido e completo",
+   Content="Auto Farm agora sobrevoa SEM subir/descer",
    Duration=6
 })
