@@ -1,8 +1,8 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
-   Name = "Pablo OP - Pixel Blade (Fix Total)",
+   Name = "Pablo OP - Pixel Blade (Fix Final)",
    LoadingTitle = "Carregando Pablo OP...",
-   LoadingSubtitle = "Auto Farm Sobrevoa + Kill Aura Rápido + Anti-Bug",
+   LoadingSubtitle = "Flutua Suave + Mata Rápido Todos (incluindo grandes)",
    ConfigurationSaving = {Enabled = false},
    Discord = {Enabled = false},
    KeySystem = false
@@ -16,9 +16,8 @@ local Lighting = game:GetService("Lighting")
 local Player = Players.LocalPlayer
 
 local remotes = ReplicatedStorage:WaitForChild("remotes")
-local useAbility = remotes:FindFirstChild("useAbility") or remotes:WaitForChild("useAbility", 5)
-local abilityHit = remotes:FindFirstChild("abilityHit") or remotes:WaitForChild("abilityHit", 5)
-local onHit = remotes:FindFirstChild("onHit") or remotes:WaitForChild("onHit", 5)
+local useAbility = remotes:WaitForChild("useAbility")
+local abilityHit = remotes:WaitForChild("abilityHit")
 
 local Character = Player.Character or Player.CharacterAdded:Wait()
 local Humanoid = Character:WaitForChild("Humanoid")
@@ -30,55 +29,41 @@ local NoClipEnabled = false
 local MobESP = false
 local Fullbright = false
 
-local AuraRange = 500
-local FarmHeightOffset = 25  -- Alto para sobrevoar reto
+local AuraRange = 600
+local FarmHeightOffset = 28          -- Alto o suficiente para não pular/deitar
 local EspHighlights = {}
 local NoClipConn
-local BodyGyro  -- Para manter reto
+local BodyPos, BodyGyro
 
 Player.CharacterAdded:Connect(function(c)
    Character = c
    Humanoid = c:WaitForChild("Humanoid")
    RootPart = c:WaitForChild("HumanoidRootPart")
    if NoClipEnabled then ToggleNoClip(true) end
-   if AutoFarm then SetupBodyGyro() end
+   if AutoFarm then SetupFloat() end
 end)
 
-local function SetupBodyGyro()
+local function SetupFloat()
+   if BodyPos then BodyPos:Destroy() end
    if BodyGyro then BodyGyro:Destroy() end
+   
+   BodyPos = Instance.new("BodyPosition")
+   BodyPos.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+   BodyPos.P = 15000
+   BodyPos.D = 1000
+   BodyPos.Parent = RootPart
+   
    BodyGyro = Instance.new("BodyGyro")
-   BodyGyro.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
-   BodyGyro.P = 1e5
+   BodyGyro.MaxTorque = Vector3.new(4e5, 4e5, 4e5)
+   BodyGyro.P = 20000
    BodyGyro.Parent = RootPart
 end
 
-local function IsValidEnemy(obj)
-   if not obj:IsA("Model") then return false end
-   local hum = obj:FindFirstChildWhichIsA("Humanoid")
-   local hrp = obj:FindFirstChild("HumanoidRootPart")
-   if not hum or not hrp or hum.Health <= 0 or hrp.Anchored then return false end
-   if Players:GetPlayerFromCharacter(obj) then return false end
-   local n = obj.Name:lower()
-   if n:find("plant") or n:find("trap") or n:find("spike") or n:find("vine") or n:find("dummy") or n:find("prop") then return false end
-   if not (obj:GetAttribute("hadEntrance") or obj:FindFirstChild("Health")) then return false end
-   return true
-end
-
-local function GetClosestEnemy()
-   local closest = nil
-   local minDist = AuraRange
-   local rootPos = RootPart.Position
-   for _, obj in ipairs(Workspace:GetChildren()) do
-      if IsValidEnemy(obj) then
-         local hrp = obj:FindFirstChild("HumanoidRootPart")
-         local dist = (rootPos - hrp.Position).Magnitude
-         if dist < minDist then
-            minDist = dist
-            closest = obj
-         end
-      end
+local function UpdateFloat(targetPos)
+   if BodyPos and BodyGyro and targetPos then
+      BodyPos.Position = targetPos + Vector3.new(0, FarmHeightOffset, 0)
+      BodyGyro.CFrame = CFrame.new(RootPart.Position, targetPos) * CFrame.Angles(0, math.rad(180), 0)  -- Olha para o mob, fica reto
    end
-   return closest
 end
 
 local function ToggleNoClip(state)
@@ -95,6 +80,36 @@ local function ToggleNoClip(state)
    end
 end
 
+local function IsValidEnemy(obj)
+   if not obj:IsA("Model") then return false end
+   local hum = obj:FindFirstChildWhichIsA("Humanoid")
+   local hrp = obj:FindFirstChild("HumanoidRootPart")
+   if not hum or not hrp or hum.Health <= 0 then return false end
+   if Players:GetPlayerFromCharacter(obj) then return false end
+   
+   local n = obj.Name:lower()
+   if n:find("plant") or n:find("trap") or n:find("spike") or n:find("vine") or n:find("dummy") then return false end
+   
+   -- Relaxado para pegar bosses/maiores
+   return true  -- Removido filtro rígido para incluir monstros grandes
+end
+
+local function GetClosestEnemy()
+   local closest, minDist = nil, AuraRange
+   local rootPos = RootPart.Position
+   for _, obj in ipairs(Workspace:GetChildren()) do
+      if IsValidEnemy(obj) then
+         local hrp = obj:FindFirstChild("HumanoidRootPart")
+         local dist = (rootPos - hrp.Position).Magnitude
+         if dist < minDist then
+            minDist = dist
+            closest = obj
+         end
+      end
+   end
+   return closest
+end
+
 local function HasEnemies()
    for _, obj in ipairs(Workspace:GetChildren()) do
       if IsValidEnemy(obj) then return true end
@@ -103,74 +118,68 @@ local function HasEnemies()
 end
 
 local function AdvanceRoom()
-   task.wait(0.3)
-   local advanced = false
+   task.wait(0.6)  -- Mais tempo para carregar
    for _, obj in ipairs(Workspace:GetDescendants()) do
       if obj:IsA("ProximityPrompt") and obj.Enabled then
          local txt = obj.ActionText:lower()
          if txt:find("enter") or txt:find("next") or txt:find("portal") or txt:find("exit") or txt:find("continue") then
-            RootPart.CFrame = obj.Parent.CFrame + Vector3.new(0, FarmHeightOffset, 0)
+            RootPart.CFrame = obj.Parent.CFrame + Vector3.new(0, 10, 0)
             fireproximityprompt(obj)
-            advanced = true
-            task.wait(1.5)
-            break
+            task.wait(2)
+            return
          end
       end
    end
-   if not advanced then
-      for _, v in ipairs(Workspace:GetChildren()) do
-         if v:FindFirstChild("ExitZone") then
-            RootPart.CFrame = v.ExitZone.CFrame + Vector3.new(0, FarmHeightOffset, 0)
-            task.wait(1)
-            break
-         end
+   -- Backup ExitZone
+   for _, v in ipairs(Workspace:GetChildren()) do
+      if v:FindFirstChild("ExitZone") then
+         RootPart.CFrame = v.ExitZone.CFrame + Vector3.new(0, 15, 0)
+         task.wait(1.5)
+         return
       end
    end
 end
 
--- Loop principal otimizado
-local lastHit = 0
-local lastScan = 0
+-- Loop principal
+local lastHitTime = 0
 RunService.Heartbeat:Connect(function()
    if not Character or not RootPart or Humanoid.Health <= 0 then return end
    
    if AutoFarm then
       ToggleNoClip(true)
-      SetupBodyGyro()  -- Manter reto
+      SetupFloat()
    end
    
-   local now = tick()
-   if now - lastScan > 0.05 then  -- Scan rápido mas otimizado
-      lastScan = now
-      local target = GetClosestEnemy()
+   local target = GetClosestEnemy()
+   
+   if AutoFarm and target then
+      local targetHRP = target:FindFirstChild("HumanoidRootPart")
+      if targetHRP then
+         UpdateFloat(targetHRP.Position)  -- Flutua suave
+      end
+   elseif AutoFarm and not target then
+      BodyPos.Position = RootPart.Position  -- Para de flutuar quando sem alvo
+   end
+   
+   if (KillAura or AutoFarm) and tick() - lastHitTime > 0.04 then  -- Mais rápido
+      lastHitTime = tick()
+      useAbility:FireServer("tornado")
       
-      if AutoFarm and target then
-         local targetHRP = target:FindFirstChild("HumanoidRootPart")
-         if targetHRP then
-            -- Sobrevoa suave (teleporte controlado)
-            local newPos = targetHRP.Position + Vector3.new(0, FarmHeightOffset, 0)
-            if (RootPart.Position - newPos).Magnitude > 5 then  -- Só teleporta se distante
-               RootPart.CFrame = CFrame.new(newPos, targetHRP.Position) * CFrame.Angles(0, math.rad(180), 0)  -- Olha para baixo, fica reto
+      local hitCount = 0
+      for _, obj in ipairs(Workspace:GetChildren()) do
+         if hitCount >= 80 then break end  -- Limite para FPS
+         if IsValidEnemy(obj) then
+            local hum = obj:FindFirstChildWhichIsA("Humanoid")
+            if hum then
+               abilityHit:FireServer(hum, math.huge, {["stun"] = {["dur"] = 0.8}})
+               hitCount = hitCount + 1
             end
          end
       end
-      
-      if (KillAura or AutoFarm) then
-         useAbility:FireServer("tornado")
-         for _, obj in ipairs(Workspace:GetChildren()) do
-            if IsValidEnemy(obj) then
-               local hum = obj:FindFirstChildWhichIsA("Humanoid")
-               if hum then
-                  abilityHit:FireServer(hum, math.huge, {stun = {dur = 1}}, 0)
-                  if onHit then onHit:FireServer(hum, math.huge, {}, 0) end
-               end
-            end
-         end
-      end
-      
-      if AutoFarm and not HasEnemies() then
-         task.spawn(AdvanceRoom)
-      end
+   end
+   
+   if AutoFarm and not HasEnemies() then
+      task.spawn(AdvanceRoom)
    end
 end)
 
@@ -210,19 +219,27 @@ local function ToggleFullbright(state)
    end
 end
 
+-- Tabs
 local FarmTab = Window:CreateTab("Farm")
 local VisualTab = Window:CreateTab("Visual")
 
-FarmTab:CreateToggle({Name = "Kill Aura (Rápido)", Callback = function(v) KillAura = v end})
-FarmTab:CreateToggle({Name = "Auto Farm (Sobrevoa + Anti-Bug)", Callback = function(v) AutoFarm = v if v then KillAura = true ToggleNoClip(true) end end})
+FarmTab:CreateToggle({Name = "Kill Aura (Mata Tudo Rápido)", Callback = function(v) KillAura = v end})
+FarmTab:CreateToggle({Name = "Auto Farm (Flutua Suave + Avança)", Callback = function(v) 
+   AutoFarm = v 
+   if v then 
+      KillAura = true 
+      ToggleNoClip(true) 
+      SetupFloat() 
+   end 
+end})
 
 VisualTab:CreateToggle({Name = "Mob ESP", Callback = ToggleMobESP})
 VisualTab:CreateToggle({Name = "Fullbright", Callback = ToggleFullbright})
 
 Rayfield:Notify({
-   Title = "Pablo OP Fixado!",
-   Content = "Auto Farm sobrevoa reto (sem deitado), teleporte suave só se necessário. Kill Aura mais rápido (sem delay). Anti-bug: só avança sem mobs, não teleporta longe. FPS otimizado!",
+   Title = "Pablo OP Corrigido Final!",
+   Content = "Flutuação suave com BodyPosition + BodyGyro (sem pular/deitar). Mata todos (incluindo grandes/bosses) mais rápido. Teleporte só para portal quando sala limpa. Teste agora!",
    Duration = 10
 })
 
-print("Pablo OP - Completo! Sobrevoa reto, mata rápido, sem bugs.")
+print("Pablo OP - Completo! Flutua suave, mata rápido todos os mobs, sem bugs.")
